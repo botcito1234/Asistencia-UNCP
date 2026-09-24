@@ -1,0 +1,87 @@
+# =============================================================================
+# Control de Asistencia - Entorno completo
+#
+#   docker compose up -d           levanta base de datos, API y panel web
+#   docker compose logs -f api     sigue los registros del backend
+#   docker compose down            detiene todo (los datos persisten)
+#   docker compose down -v         detiene y BORRA los datos. Cuidado.
+#
+# Antes de arrancar, copie backend/.env.example a .env en la raiz y complete
+# al menos POSTGRES_PASSWORD y JWT_SECRET.
+# =============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: asistencia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-asistencia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en el archivo .env}
+      POSTGRES_DB: ${POSTGRES_DB:-asistencia}
+      # Ordenacion estable e independiente del sistema anfitrion.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+      - ./ops/backup:/backup
+    ports:
+      # Se expone solo en localhost: la base no debe ser accesible desde fuera.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-asistencia} -d ${POSTGRES_DB:-asistencia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: asistencia-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-asistencia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-asistencia}?schema=public
+      STORAGE_ROOT: /datos/evidencias
+      TRUST_PROXY: "true"
+    env_file:
+      - .env
+    volumes:
+      # Las fotografias y los paquetes de archivado viven fuera del contenedor
+      # para sobrevivir a un redespliegue.
+      - datos_evidencias:/datos/evidencias
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/v1/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  web:
+    build:
+      context: ./web-admin
+      dockerfile: Dockerfile
+      args:
+        # El panel se sirve detras del mismo proxy que la API, por eso la URL
+        # base queda vacia y las peticiones van a /api/v1 del mismo origen.
+        VITE_API_BASE_URL: ""
+    container_name: asistencia-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:80"
+
+volumes:
+  datos_postgres:
+    name: asistencia_datos_postgres
+  datos_evidencias:
+    name: asistencia_datos_evidencias

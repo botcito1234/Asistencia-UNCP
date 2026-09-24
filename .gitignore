@@ -1,0 +1,45 @@
+# Dependencias
+node_modules/
+
+# Compilados
+dist/
+build/
+*.tsbuildinfo
+
+# Entorno: nunca se versionan credenciales
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
+
+# Datos de la aplicacion
+backend/storage/
+ops/backup/*
+!ops/backup/.gitkeep
+
+# Firma de Android
+mobile/android/key.properties
+*.jks
+*.keystore
+
+# Flutter
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/
+mobile/.idea/
+
+# Registros y temporales
+*.log
+tmp/
+coverage/
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/

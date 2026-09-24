@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copias de seguridad y transferencia entre dispositivos.
+
+  Se excluye todo. La aplicacion guarda tokens de sesion y el secreto que
+  compone la huella del dispositivo; restaurarlos en otro telefono permitiria
+  saltarse el control de "un solo dispositivo", que es justo lo que el sistema
+  debe impedir. Si el usuario cambia de telefono, el administrador autoriza el
+  cambio de forma explicita y queda auditado.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

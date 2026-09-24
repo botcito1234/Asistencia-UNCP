@@ -1,0 +1,694 @@
+// =============================================================================
+// Control de Asistencia de Practicantes - Esquema de datos
+// -----------------------------------------------------------------------------
+// Principios aplicados:
+//  - Una sola fuente de verdad por concepto de negocio.
+//  - La historia se preserva: horarios con vigencia, dispositivos con revocacion,
+//    regularizaciones con valor anterior y posterior.
+//  - No se borra evidencia: se archiva, se anula o se desactiva.
+//  - La integridad de asistencia se garantiza con restricciones reales de BD
+//    (unique) y no solo con codigo de aplicacion.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enumeraciones
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMINISTRADOR
+  PRACTICANTE
+}
+
+enum UserStatus {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
+
+enum DeviceBindingStatus {
+  ACTIVO
+  REVOCADO
+}
+
+enum MarkType {
+  ENTRADA
+  SALIDA
+}
+
+enum Punctuality {
+  PUNTUAL
+  TARDANZA
+}
+
+/// Estado del dia de asistencia de un practicante.
+/// PROGRAMADO  -> el dia esta previsto pero aun no hay marcacion
+/// PRESENTE    -> existe entrada valida
+/// AUSENTE     -> la jornada cerro sin ninguna entrada
+/// NO_LABORABLE-> el practicante no tiene horario ese dia
+enum AttendanceDayStatus {
+  PROGRAMADO
+  PRESENTE
+  AUSENTE
+  NO_LABORABLE
+}
+
+enum EvidenceKind {
+  MARCACION_ENTRADA
+  MARCACION_SALIDA
+  PERFIL
+}
+
+enum EvidenceStatus {
+  ACTIVA
+  ARCHIVADA
+  LIBERADA
+}
+
+enum SecurityEventType {
+  FUERA_DE_GEOCERCA
+  UBICACION_SIMULADA
+  GPS_IMPRECISO
+  DISPOSITIVO_NO_AUTORIZADO
+  SESION_SIMULTANEA
+  ENTRADA_DUPLICADA
+  SALIDA_DUPLICADA
+  SALIDA_SIN_ENTRADA
+  MARCACION_FUERA_DE_VENTANA
+  CREDENCIALES_INVALIDAS
+  CUENTA_BLOQUEADA
+  EVIDENCIA_INVALIDA
+  INTENTO_SOSPECHOSO
+  SALIDA_PENDIENTE
+  FALTA_REGISTRADA
+  ARCHIVADO_FALLIDO
+}
+
+enum SecuritySeverity {
+  INFO
+  ADVERTENCIA
+  CRITICO
+}
+
+enum NotificationType {
+  ENTRADA_REGISTRADA
+  TARDANZA_REGISTRADA
+  SALIDA_REGISTRADA
+  FALTA_REGISTRADA
+  SALIDA_PENDIENTE
+  FUERA_DE_GEOCERCA
+  UBICACION_SIMULADA
+  DISPOSITIVO_NO_AUTORIZADO
+  EVENTO_CRITICO
+  REGULARIZACION
+  ARCHIVADO
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum DeliveryStatus {
+  PENDIENTE
+  ENVIADO
+  FALLIDO
+  OMITIDO
+}
+
+enum ArchiveStatus {
+  PENDIENTE
+  GENERANDO
+  SUBIENDO
+  VERIFICANDO
+  COMPLETADO
+  LIBERADO
+  FALLIDO
+}
+
+enum RegularizationField {
+  ENTRADA_HORA
+  SALIDA_HORA
+  PUNTUALIDAD
+  ESTADO_DIA
+  JUSTIFICACION
+}
+
+// -----------------------------------------------------------------------------
+// Identidad y acceso
+// -----------------------------------------------------------------------------
+
+model UserAccount {
+  id                 String     @id @default(uuid()) @db.Uuid
+  dni                String     @unique @db.VarChar(15)
+  passwordHash       String     @map("password_hash") @db.VarChar(255)
+  role               UserRole
+  status             UserStatus @default(ACTIVO)
+  mustChangePassword Boolean    @default(true) @map("must_change_password")
+  displayName        String     @map("display_name") @db.VarChar(160)
+  email              String?    @db.VarChar(160)
+
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz(6)
+  passwordSetAt  DateTime  @default(now()) @map("password_set_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  intern             Intern?
+  sessions           Session[]
+  deviceBindings     DeviceBinding[]      @relation("DeviceBindingUser")
+  revokedBindings    DeviceBinding[]      @relation("DeviceBindingRevoker")
+  auditLogs          AuditLog[]           @relation("AuditActor")
+  regularizations    Regularization[]
+  notifications      Notification[]
+  acknowledgedEvents SecurityEvent[]      @relation("SecurityEventAck")
+  pushTokens         PushToken[]
+
+  @@index([role, status])
+  @@map("user_account")
+}
+
+model Session {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  user              UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash  String   @unique @map("refresh_token_hash") @db.VarChar(128)
+  deviceFingerprint String?  @map("device_fingerprint") @db.VarChar(128)
+  userAgent         String?  @map("user_agent") @db.VarChar(255)
+  ipAddress         String?  @map("ip_address") @db.VarChar(64)
+
+  issuedAt     DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedReason String?  @map("revoked_reason") @db.VarChar(120)
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model PushToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.VarChar(255)
+  platform  String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  @@index([userId, revokedAt])
+  @@map("push_token")
+}
+
+/// Vinculacion de una cuenta a un unico telefono.
+/// Solo puede existir UNA vinculacion ACTIVA por usuario: lo garantiza el indice
+/// unico parcial creado en la migracion (userId WHERE status = 'ACTIVO').
+model DeviceBinding {
+  id                String              @id @default(uuid()) @db.Uuid
+  userId            String              @map("user_id") @db.Uuid
+  user              UserAccount         @relation("DeviceBindingUser", fields: [userId], references: [id], onDelete: Cascade)
+  deviceFingerprint String              @map("device_fingerprint") @db.VarChar(128)
+  platform          String              @db.VarChar(20)
+  model             String?             @db.VarChar(120)
+  osVersion         String?             @map("os_version") @db.VarChar(60)
+  appVersion        String?             @map("app_version") @db.VarChar(40)
+  status            DeviceBindingStatus @default(ACTIVO)
+
+  boundAt    DateTime  @default(now()) @map("bound_at") @db.Timestamptz(6)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedBy  String?   @map("revoked_by") @db.Uuid
+  revoker    UserAccount? @relation("DeviceBindingRevoker", fields: [revokedBy], references: [id], onDelete: SetNull)
+  revokeReason String?  @map("revoke_reason") @db.VarChar(255)
+
+  /// Autorizacion administrativa explicita para vincular un nuevo telefono.
+  /// Mientras exista una autorizacion vigente y sin usar, el siguiente login
+  /// puede crear una nueva vinculacion.
+  marks AttendanceMark[]
+
+  @@index([userId, status])
+  @@index([deviceFingerprint])
+  @@map("device_binding")
+}
+
+/// Permiso de un solo uso emitido por un administrador para que un practicante
+/// vincule un telefono distinto al actual.
+model DeviceChangeAuthorization {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  grantedBy  String    @map("granted_by") @db.Uuid
+  reason     String    @db.VarChar(255)
+  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  @@index([userId, consumedAt])
+  @@map("device_change_authorization")
+}
+
+// -----------------------------------------------------------------------------
+// Sedes y practicantes
+// -----------------------------------------------------------------------------
+
+model Site {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(30)
+  name      String   @db.VarChar(160)
+  address   String   @db.VarChar(255)
+  latitude  Decimal  @db.Decimal(9, 6)
+  longitude Decimal  @db.Decimal(9, 6)
+  /// Radio de geocerca en metros. Valor inicial de negocio: 50 m.
+  radiusMeters Int   @default(50) @map("radius_meters")
+  timezone  String   @default("America/Lima") @db.VarChar(60)
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  interns        Intern[]
+  attendanceDays AttendanceDay[]
+  securityEvents SecurityEvent[]
+  archiveBatches ArchiveBatch[]
+
+  @@index([active])
+  @@map("site")
+}
+
+model Intern {
+  id       String @id @default(uuid()) @db.Uuid
+  userId   String @unique @map("user_id") @db.Uuid
+  user     UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dni      String @unique @db.VarChar(15)
+  firstNames String @map("first_names") @db.VarChar(120)
+  lastNames  String @map("last_names") @db.VarChar(120)
+  /// Aula, grupo o area asignada dentro de la sede.
+  areaGroup  String? @map("area_group") @db.VarChar(120)
+  phone      String? @db.VarChar(30)
+  email      String? @db.VarChar(160)
+
+  siteId String @map("site_id") @db.Uuid
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  profilePhotoId String? @unique @map("profile_photo_id") @db.Uuid
+  profilePhoto   EvidencePhoto? @relation("InternProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
+
+  /// Consentimiento informado de tratamiento de datos (GPS, camara, evidencias).
+  consentAcceptedAt      DateTime? @map("consent_accepted_at") @db.Timestamptz(6)
+  consentPolicyVersion   String?   @map("consent_policy_version") @db.VarChar(20)
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  schedules      ScheduleEntry[]
+  attendanceDays AttendanceDay[]
+  securityEvents SecurityEvent[]
+  evidences      EvidencePhoto[] @relation("InternEvidences")
+
+  @@index([siteId, active])
+  @@index([lastNames, firstNames])
+  @@map("intern")
+}
+
+/// Horario por dia de semana con vigencia temporal.
+/// Cambiar un horario NO sobrescribe el anterior: se cierra con effectiveTo y se
+/// crea una nueva fila. Asi la asistencia historica siempre puede reconstruirse
+/// contra el horario que realmente estaba vigente ese dia.
+model ScheduleEntry {
+  id       String @id @default(uuid()) @db.Uuid
+  internId String @map("intern_id") @db.Uuid
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  /// 1 = lunes ... 7 = domingo (ISO-8601)
+  weekday   Int    @db.SmallInt
+  /// Hora de entrada programada en minutos desde medianoche, hora local de sede.
+  startMinute Int  @map("start_minute")
+  /// Hora de salida referencial (opcional; no se valida contra ella).
+  endMinute   Int? @map("end_minute")
+
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([internId, weekday, effectiveFrom])
+  @@map("schedule_entry")
+}
+
+// -----------------------------------------------------------------------------
+// Asistencia
+// -----------------------------------------------------------------------------
+
+/// Una fila por practicante y por fecha de negocio.
+/// UNIQUE(intern_id, business_date) es la barrera que impide dos jornadas del
+/// mismo dia. Las marcaciones cuelgan de aqui.
+model AttendanceDay {
+  id           String   @id @default(uuid()) @db.Uuid
+  internId     String   @map("intern_id") @db.Uuid
+  intern       Intern   @relation(fields: [internId], references: [id], onDelete: Cascade)
+  siteId       String   @map("site_id") @db.Uuid
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  businessDate DateTime @map("business_date") @db.Date
+
+  /// Copia inmutable del horario vigente ese dia (minutos desde medianoche).
+  scheduledStartMinute Int?  @map("scheduled_start_minute")
+  scheduledEndMinute   Int?  @map("scheduled_end_minute")
+  scheduleEntryId      String? @map("schedule_entry_id") @db.Uuid
+
+  status      AttendanceDayStatus @default(PROGRAMADO)
+  punctuality Punctuality?
+  /// Minutos de tardanza respecto a la hora programada (0 si puntual).
+  lateMinutes Int @default(0) @map("late_minutes")
+
+  /// Se activa cuando la jornada cierra con entrada pero sin salida.
+  pendingExit Boolean   @default(false) @map("pending_exit")
+  closedAt    DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  /// Marca que la jornada fue modificada por un administrador.
+  regularized Boolean @default(false)
+
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  marks           AttendanceMark[]
+  regularizations Regularization[]
+
+  @@unique([internId, businessDate], name: "uq_attendance_day_intern_date")
+  @@index([businessDate, siteId])
+  @@index([siteId, status, businessDate])
+  @@index([pendingExit, businessDate])
+  @@map("attendance_day")
+}
+
+/// Marcacion efectiva (entrada o salida). Solo existen marcaciones VALIDAS aqui;
+/// los intentos rechazados viven en SecurityEvent y nunca se mezclan.
+/// UNIQUE(attendance_day_id, type) impide doble entrada y doble salida.
+model AttendanceMark {
+  id              String   @id @default(uuid()) @db.Uuid
+  attendanceDayId String   @map("attendance_day_id") @db.Uuid
+  attendanceDay   AttendanceDay @relation(fields: [attendanceDayId], references: [id], onDelete: Cascade)
+  type            MarkType
+
+  /// Hora oficial: reloj del servidor. Nunca la del telefono.
+  serverTime DateTime @map("server_time") @db.Timestamptz(6)
+  /// Hora reportada por el dispositivo, solo para auditoria y deteccion de desfase.
+  deviceTime DateTime? @map("device_time") @db.Timestamptz(6)
+  deviceClockSkewSeconds Int? @map("device_clock_skew_seconds")
+
+  latitude      Decimal @db.Decimal(9, 6)
+  longitude     Decimal @db.Decimal(9, 6)
+  accuracyMeters Decimal @map("accuracy_meters") @db.Decimal(7, 2)
+  /// Distancia recalculada EN SERVIDOR entre la marcacion y el centro de la sede.
+  distanceMeters Decimal @map("distance_meters") @db.Decimal(9, 2)
+  altitude      Decimal? @db.Decimal(9, 2)
+  speed         Decimal? @db.Decimal(7, 2)
+  locationAgeMs Int?    @map("location_age_ms")
+
+  mockLocationReported Boolean @default(false) @map("mock_location_reported")
+  developerModeReported Boolean @default(false) @map("developer_mode_reported")
+
+  evidenceId String        @unique @map("evidence_id") @db.Uuid
+  evidence   EvidencePhoto @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+
+  deviceBindingId String?        @map("device_binding_id") @db.Uuid
+  deviceBinding   DeviceBinding? @relation(fields: [deviceBindingId], references: [id], onDelete: SetNull)
+
+  ipAddress String? @map("ip_address") @db.VarChar(64)
+  /// Clave de idempotencia enviada por el cliente para tolerar doble pulsacion
+  /// y reintentos de red sin crear registros duplicados.
+  idempotencyKey String? @unique @map("idempotency_key") @db.VarChar(80)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([attendanceDayId, type], name: "uq_mark_day_type")
+  @@index([serverTime])
+  @@map("attendance_mark")
+}
+
+/// Registro de cambios administrativos sobre una jornada. El dato original nunca
+/// se pierde: queda aqui como oldValue.
+model Regularization {
+  id              String   @id @default(uuid()) @db.Uuid
+  attendanceDayId String   @map("attendance_day_id") @db.Uuid
+  attendanceDay   AttendanceDay @relation(fields: [attendanceDayId], references: [id], onDelete: Cascade)
+  adminUserId     String   @map("admin_user_id") @db.Uuid
+  admin           UserAccount @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  field    RegularizationField
+  oldValue String? @map("old_value") @db.VarChar(255)
+  newValue String? @map("new_value") @db.VarChar(255)
+  reason   String  @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([attendanceDayId])
+  @@index([adminUserId, createdAt])
+  @@map("regularization")
+}
+
+// -----------------------------------------------------------------------------
+// Evidencias
+// -----------------------------------------------------------------------------
+
+/// Fotografia de evidencia. El binario vive fuera de la BD (almacenamiento
+/// privado) y aqui queda su identidad, hash de integridad y trazabilidad.
+/// El campo faceEmbedding queda reservado para un futuro reconocimiento facial
+/// sin necesidad de migrar el modelo.
+model EvidencePhoto {
+  id       String  @id @default(uuid()) @db.Uuid
+  internId String  @map("intern_id") @db.Uuid
+  intern   Intern  @relation("InternEvidences", fields: [internId], references: [id], onDelete: Cascade)
+
+  kind   EvidenceKind
+  status EvidenceStatus @default(ACTIVA)
+
+  storageKey  String @unique @map("storage_key") @db.VarChar(400)
+  mimeType    String @map("mime_type") @db.VarChar(60)
+  sizeBytes   Int    @map("size_bytes")
+  width       Int?
+  height      Int?
+  /// SHA-256 en hexadecimal del binario tal como quedo almacenado.
+  sha256      String @db.VarChar(64)
+
+  capturedAt  DateTime? @map("captured_at") @db.Timestamptz(6)
+  uploadedAt  DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  /// Origen declarado por el cliente. Solo se acepta CAMARA.
+  captureSource String  @default("CAMARA") @map("capture_source") @db.VarChar(20)
+
+  /// Reservado para reconocimiento facial futuro. Hoy siempre null.
+  faceEmbedding     Bytes?  @map("face_embedding")
+  faceEmbeddingModel String? @map("face_embedding_model") @db.VarChar(60)
+
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  driveFileId  String?   @map("drive_file_id") @db.VarChar(120)
+  releasedAt   DateTime? @map("released_at") @db.Timestamptz(6)
+  archiveBatchId String? @map("archive_batch_id") @db.Uuid
+  archiveBatch   ArchiveBatch? @relation(fields: [archiveBatchId], references: [id], onDelete: SetNull)
+
+  mark           AttendanceMark?
+  profileOfIntern Intern?        @relation("InternProfilePhoto")
+
+  @@index([internId, kind, uploadedAt])
+  @@index([status, uploadedAt])
+  @@map("evidence_photo")
+}
+
+// -----------------------------------------------------------------------------
+// Seguridad, notificaciones y auditoria
+// -----------------------------------------------------------------------------
+
+/// Incidentes y marcaciones rechazadas. Entidad independiente de la asistencia.
+model SecurityEvent {
+  id       String            @id @default(uuid()) @db.Uuid
+  type     SecurityEventType
+  severity SecuritySeverity  @default(ADVERTENCIA)
+
+  internId String? @map("intern_id") @db.Uuid
+  intern   Intern? @relation(fields: [internId], references: [id], onDelete: SetNull)
+  userId   String? @map("user_id") @db.Uuid
+  siteId   String? @map("site_id") @db.Uuid
+  site     Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  message String @db.VarChar(400)
+
+  latitude       Decimal? @db.Decimal(9, 6)
+  longitude      Decimal? @db.Decimal(9, 6)
+  accuracyMeters Decimal? @map("accuracy_meters") @db.Decimal(7, 2)
+  distanceMeters Decimal? @map("distance_meters") @db.Decimal(9, 2)
+
+  deviceFingerprint String? @map("device_fingerprint") @db.VarChar(128)
+  ipAddress         String? @map("ip_address") @db.VarChar(64)
+  userAgent         String? @map("user_agent") @db.VarChar(255)
+
+  /// Detalle tecnico completo del intento (payload saneado, sin secretos).
+  details Json?
+
+  acknowledgedAt DateTime?    @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedBy String?      @map("acknowledged_by") @db.Uuid
+  acknowledger   UserAccount? @relation("SecurityEventAck", fields: [acknowledgedBy], references: [id], onDelete: SetNull)
+  acknowledgeNote String?     @map("acknowledge_note") @db.VarChar(400)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([siteId, createdAt])
+  @@index([acknowledgedAt, severity])
+  @@map("security_event")
+}
+
+model Notification {
+  id       String           @id @default(uuid()) @db.Uuid
+  type     NotificationType
+  severity SecuritySeverity @default(INFO)
+
+  /// null = dirigida a todos los administradores.
+  recipientUserId String?      @map("recipient_user_id") @db.Uuid
+  recipient       UserAccount? @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  title String @db.VarChar(160)
+  body  String @db.VarChar(600)
+  data  Json?
+
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  deliveries NotificationDelivery[]
+
+  @@index([recipientUserId, readAt, createdAt])
+  @@index([createdAt])
+  @@map("notification")
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid()) @db.Uuid
+  notificationId String              @map("notification_id") @db.Uuid
+  notification   Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(PENDIENTE)
+  target         String?             @db.VarChar(255)
+  error          String?             @db.VarChar(400)
+  attempts       Int                 @default(0)
+  sentAt         DateTime?           @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([status, channel])
+  @@map("notification_delivery")
+}
+
+/// Bitacora de auditoria. Cubre escrituras y lecturas sensibles (evidencias).
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actor       UserAccount? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorRole   UserRole? @map("actor_role")
+
+  action     String  @db.VarChar(80)
+  entityType String  @map("entity_type") @db.VarChar(60)
+  entityId   String? @map("entity_id") @db.VarChar(80)
+
+  before Json?
+  after  Json?
+  reason String? @db.VarChar(500)
+
+  ipAddress String? @map("ip_address") @db.VarChar(64)
+  userAgent String? @map("user_agent") @db.VarChar(255)
+  requestId String? @map("request_id") @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// -----------------------------------------------------------------------------
+// Archivado y retencion
+// -----------------------------------------------------------------------------
+
+model ArchiveBatch {
+  id     String        @id @default(uuid()) @db.Uuid
+  siteId String        @map("site_id") @db.Uuid
+  site   Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  year   Int
+  month  Int
+  status ArchiveStatus @default(PENDIENTE)
+
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd   DateTime @map("period_end") @db.Date
+
+  attendanceDays Int @default(0) @map("attendance_days")
+  marksCount     Int @default(0) @map("marks_count")
+  photosCount    Int @default(0) @map("photos_count")
+  eventsCount    Int @default(0) @map("events_count")
+
+  packageBytes  Int?    @map("package_bytes")
+  packageSha256 String? @map("package_sha256") @db.VarChar(64)
+
+  driveFolderId String? @map("drive_folder_id") @db.VarChar(120)
+  driveFileId   String? @map("drive_file_id") @db.VarChar(120)
+  driveWebLink  String? @map("drive_web_link") @db.VarChar(400)
+  /// Hash reportado por Drive tras la subida, usado para verificar integridad.
+  driveChecksum String? @map("drive_checksum") @db.VarChar(64)
+
+  startedAt  DateTime? @map("started_at") @db.Timestamptz(6)
+  uploadedAt DateTime? @map("uploaded_at") @db.Timestamptz(6)
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(6)
+  lastError  String?   @map("last_error") @db.VarChar(600)
+  attempts   Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  evidences EvidencePhoto[]
+
+  @@unique([siteId, year, month], name: "uq_archive_site_period")
+  @@index([status])
+  @@map("archive_batch")
+}
+
+/// Parametros operativos configurables sin desplegar codigo.
+model AppSetting {
+  key       String   @id @db.VarChar(80)
+  value     Json
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_setting")
+}
+
+/// Control de ejecuciones de tareas programadas (idempotencia de jobs).
+model JobRun {
+  id        String    @id @default(uuid()) @db.Uuid
+  jobName   String    @map("job_name") @db.VarChar(80)
+  runKey    String    @map("run_key") @db.VarChar(120)
+  startedAt DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+  success   Boolean?
+  summary   Json?
+  error     String?   @db.VarChar(600)
+
+  @@unique([jobName, runKey], name: "uq_job_run")
+  @@index([jobName, startedAt])
+  @@map("job_run")
+}

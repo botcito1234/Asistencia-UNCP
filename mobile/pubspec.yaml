@@ -1,0 +1,80 @@
+name: asistencia_app
+description: Control de asistencia de practicantes con GPS, geocerca y evidencia fotografica.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Estado
+  flutter_riverpod: ^2.6.1
+
+  # Red
+  dio: ^5.7.0
+
+  # Navegacion
+  go_router: ^14.6.2
+
+  # Ubicacion. geolocator expone Position.isMocked en Android, que es la senal
+  # que da el propio sistema operativo cuando la posicion viene de una app de
+  # ubicacion simulada.
+  geolocator: ^13.0.2
+
+  # Camara. Se usa la camara directamente y no un selector de archivos: la
+  # evidencia debe capturarse en el momento, no elegirse de la galeria.
+  camera: ^0.12.1
+
+  # Compresion de la fotografia antes de subirla.
+  flutter_image_compress: ^2.3.0
+
+  # Almacenamiento cifrado (Android Keystore) para tokens y huella de dispositivo.
+  flutter_secure_storage: ^9.2.2
+
+  # Identidad del dispositivo y de la aplicacion.
+  device_info_plus: ^11.2.0
+  package_info_plus: ^8.1.2
+
+  # Estado de la conexion. Internet es obligatorio: no hay modo sin conexion.
+  connectivity_plus: ^6.1.1
+
+  # Permisos de camara y ubicacion.
+  permission_handler: ^11.3.1
+
+  # Mapa de la sede y de la marcacion.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Formato de fechas en espanol.
+  intl: ^0.20.2
+
+  # Utilidades
+  path_provider: ^2.1.5
+  crypto: ^3.0.6
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/marca/
+
+  # Sora es la tipografia de marca. Se empaqueta con la aplicacion: el telefono
+  # no siempre tiene datos y la interfaz no puede depender de eso.
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fuentes/Sora-Regular.ttf
+          weight: 400
+        - asset: assets/fuentes/Sora-SemiBold.ttf
+          weight: 600

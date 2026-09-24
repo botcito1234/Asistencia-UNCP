@@ -1,0 +1,16 @@
+# Credenciales de firma del APK de produccion.
+#
+# Copie este archivo a `android/key.properties` y complete los valores.
+# NUNCA lo suba al repositorio: contiene la contrasena de su clave de firma.
+#
+# Para generar el almacen de claves (una sola vez, y conservelo con cuidado:
+# si lo pierde no podra publicar actualizaciones de la misma aplicacion):
+#
+#   keytool -genkey -v -keystore asistencia-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias asistencia
+#
+storePassword=
+keyPassword=
+keyAlias=asistencia
+# Ruta al archivo .jks, absoluta o relativa a la carpeta android/app
+storeFile=../asistencia-release.jks

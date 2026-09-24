@@ -1,0 +1,105 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- =====================================================================
+         PERMISOS
+
+         Se pide exactamente lo necesario para registrar asistencia y nada mas.
+         En concreto NO se declaran:
+           - READ_PHONE_STATE ni acceso a IMEI o numero de serie. La identidad
+             del dispositivo se resuelve con una huella generada por la propia
+             aplicacion y guardada en el almacen cifrado del sistema.
+           - ACCESS_BACKGROUND_LOCATION. La ubicacion se lee solo mientras el
+             usuario esta marcando, con la aplicacion en primer plano.
+           - READ_EXTERNAL_STORAGE ni READ_MEDIA_IMAGES. La fotografia se captura
+             con la camara; no existe ninguna ruta que permita elegirla de la
+             galeria.
+           - RECORD_AUDIO. La camara se abre con el audio desactivado.
+         ===================================================================== -->
+
+    <!-- Internet es obligatorio: no hay modo sin conexion. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Ubicacion precisa: una geocerca de 50 m no se puede verificar con
+         ubicacion aproximada. Se pide COARSE ademas de FINE porque Android 12+
+         permite al usuario conceder solo la aproximada, caso en el que la
+         aplicacion lo detecta por la precision y lo explica. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Evidencia fotografica. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Notificaciones del sistema (Android 13+). Opcional: sin ellas los
+         avisos siguen llegando dentro de la aplicacion. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Permisos que AGREGAN los plugins al fusionar manifiestos y que esta
+         aplicacion no necesita. Se eliminan de forma explicita para que el APK
+         final pida exactamente lo que declara la politica de privacidad:
+           - RECORD_AUDIO: lo agrega el plugin de camara para grabar video; aqui
+             la camara se abre con enableAudio: false y solo toma fotos.
+           - READ/WRITE_EXTERNAL_STORAGE: la foto se guarda en la cache privada
+             de la aplicacion, que no requiere permiso, y no se lee nada de la
+             galeria. Pedirlos contradiria "no se puede elegir de la galeria".
+         Se verifica con: aapt dump badging app-release.apk -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+
+    <!-- El telefono debe tener GPS y camara; sin ellos la aplicacion no cumple
+         su funcion. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+    <application
+        android:label="Control de Asistencia"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+        <!-- Necesario para abrir los ajustes del sistema cuando el usuario ha
+             bloqueado un permiso. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+</manifest>

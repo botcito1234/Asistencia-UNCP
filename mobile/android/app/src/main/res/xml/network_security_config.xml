@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Politica de red.
+
+  Por defecto TODO el trafico va cifrado: cleartextTrafficPermitted="false".
+  La unica excepcion son las direcciones de desarrollo local (el emulador ve el
+  equipo anfitrion como 10.0.2.2), para poder probar contra un backend local sin
+  certificado. En una compilacion de produccion apuntando a un dominio real,
+  estas excepciones no aplican y la conexion exige HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
