@@ -137,6 +137,116 @@ real y el panel deja de recibir novedades.
 
 ---
 
+## 5-bis. Alternativa gestionada: Vercel + Railway + Neon
+
+Sirve si no se quiere administrar un servidor. El panel es estático y va en
+Vercel; la API en Railway; PostgreSQL en Neon. Hay **tres condiciones** que no
+son opcionales.
+
+### Condición 1: volumen persistente en Railway
+
+Las fotografías se guardan en el sistema de archivos, no en la base de datos.
+El contenedor de Railway tiene disco **efímero**: sin un volumen, cada
+despliegue borra todas las evidencias.
+
+En el servicio de Railway: **Variables → Volumes → Add volume**, montarlo en
+`/datos` y poner `STORAGE_ROOT=/datos/evidencias`. Con 60 practicantes son unos
+260 MB al mes; con la retención de 6 meses, 5 GB dan holgura.
+
+### Condición 2: las dos conexiones de Neon
+
+Neon pone un agrupador delante de PostgreSQL. La aplicación usa la conexión
+agrupada; `prisma migrate` necesita la directa, porque el agrupador no admite
+las sentencias de esquema.
+
+```bash
+DATABASE_URL=postgresql://...@ep-xxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
+DIRECT_DATABASE_URL=postgresql://...@ep-xxx.region.aws.neon.tech/asistencia?sslmode=require
+```
+
+La diferencia es el `-pooler` del nombre. Con un PostgreSQL propio, ambas valen
+lo mismo.
+
+### Condición 3: la API no puede dormirse
+
+El cierre de jornada corre a las 23:30 y el archivado de madrugada, dentro del
+propio proceso. Si el plan suspende el servicio por inactividad, **esas tareas
+no se ejecutan**: las faltas del día no quedan registradas y las salidas
+pendientes no se cierran. Hay que usar un plan que mantenga el servicio
+despierto, o mover esas tareas a un programador externo que golpee
+`POST /api/v1/asistencia/cerrar-jornada`.
+
+### Pasos
+
+**Neon**
+
+1. Crear proyecto y base de datos `asistencia`.
+2. Copiar las dos cadenas de conexión (agrupada y directa).
+
+**Railway**
+
+1. Nuevo proyecto → **Deploy from GitHub repo** → elegir el repositorio.
+2. **Root Directory**: `backend`. Railway detecta el `Dockerfile`.
+3. Añadir el volumen (condición 1).
+4. Variables de entorno:
+
+```bash
+DATABASE_URL=<cadena agrupada de Neon>
+DIRECT_DATABASE_URL=<cadena directa de Neon>
+JWT_SECRET=<openssl rand -base64 48>
+STORAGE_ROOT=/datos/evidencias
+PUBLIC_BASE_URL=https://<tu-api>.up.railway.app
+WEB_ADMIN_ORIGIN=https://<tu-panel>.vercel.app
+NODE_ENV=production
+ENABLE_CRON=true
+APP_TIMEZONE=America/Lima
+```
+
+5. Aplicar las migraciones una vez, desde la máquina local:
+
+```bash
+cd backend
+DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npx prisma migrate deploy
+DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npm run seed
+```
+
+   El seed imprime la contraseña del administrador **una sola vez**.
+
+**Vercel**
+
+1. **Add New → Project** → el mismo repositorio.
+2. **Root Directory**: `web-admin`. El `vercel.json` ya define la compilación y
+   las reescrituras que necesita una aplicación de una sola página.
+3. Variable de entorno: `VITE_API_BASE_URL=https://<tu-api>.up.railway.app`
+4. Desplegar, copiar la URL y volver a Railway para poner esa URL exacta en
+   `WEB_ADMIN_ORIGIN`. Sin eso el navegador bloquea las peticiones por CORS.
+
+**Aplicación móvil**
+
+```bash
+cd mobile
+flutter build apk --release --dart-define=API_BASE_URL=https://<tu-api>.up.railway.app
+```
+
+La URL queda dentro del APK: si cambia el dominio, hay que recompilar y
+reinstalar en todos los teléfonos. Conviene usar un dominio propio
+(`asistencia.uncp.edu.pe`) apuntando a Railway desde el principio, para no
+depender del subdominio que asigna la plataforma.
+
+### Qué se pierde frente al servidor propio
+
+| | Servidor propio | Vercel + Railway + Neon |
+|---|---|---|
+| Respaldos | `ops/respaldo.sh`, con las fotos | Neon respalda la base; las fotos dependen del volumen, que hay que respaldar aparte |
+| Evidencias | Disco del servidor | Volumen de Railway: sobrevive a los despliegues, pero no se replica |
+| Costo | Un VPS | Neon y Vercel tienen plan gratuito; Railway cobra por uso |
+| Control de datos | Completo | Los datos —incluidas fotografías de personas— quedan en infraestructura de terceros, fuera del país |
+
+Ese último punto conviene consultarlo con la universidad antes de decidir:
+son datos personales de practicantes, con fotografía y ubicación.
+
+---
+
 ## 6. Google Drive (opcional)
 
 Sin esto el archivado **funciona igual**: genera y verifica el paquete en disco y

@@ -59,6 +59,8 @@ export async function setup(): Promise<void> {
     'postgresql://' + user + ':' + password + '@127.0.0.1:' + port + '/' + database + '?schema=public&connection_limit=10';
 
   process.env.DATABASE_URL = url;
+  // PostgreSQL efimero, sin agrupador: la conexion directa es la misma.
+  process.env.DIRECT_DATABASE_URL = url;
   process.env.NODE_ENV = 'test';
   process.env.ENABLE_CRON = 'false';
   process.env.LOG_LEVEL = 'fatal';
@@ -73,7 +75,7 @@ export async function setup(): Promise<void> {
   // spawnSync sobre un .cmd falla con EINVAL desde Node 20.
   const prismaCli = require.resolve('prisma/build/index.js');
   execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL: url, DIRECT_DATABASE_URL: url },
     stdio: 'pipe',
     cwd: process.cwd(),
   });
