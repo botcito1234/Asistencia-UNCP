@@ -63,8 +63,34 @@ function marcar(tipo, token, lat, lng, extra = {}) {
 }
 
 console.log('\n== 1. Administrador ==');
-const admin = await req('POST', '/auth/login', { cuerpo: { dni: process.env.ADMIN_DNI, password: process.env.ADMIN_PASSWORD } });
+let admin = await req('POST', '/auth/login', { cuerpo: { dni: process.env.ADMIN_DNI, password: process.env.ADMIN_PASSWORD } });
 paso('login del administrador', admin.status === 200, 'rol ' + admin.datos.user?.role);
+
+if (admin.status !== 200 || !admin.datos.tokens) {
+  console.error('No se pudo entrar como administrador: ' + JSON.stringify(admin.datos));
+  process.exit(1);
+}
+
+// Un sistema recien desplegado tiene al administrador con contrasena temporal,
+// y hasta que la cambie el servidor responde 403 a todo lo demas. Esta
+// herramienta se usa justo despues de desplegar, asi que resuelve ese paso en
+// lugar de fallar con errores que no explican nada.
+if (admin.datos.user?.mustChangePassword) {
+  const nueva = process.env.ADMIN_NEW_PASSWORD ?? 'Humo' + Math.random().toString(36).slice(2, 10) + '1A';
+  const cambio = await req('POST', '/auth/cambiar-password', {
+    token: admin.datos.tokens.accessToken,
+    cuerpo: { currentPassword: process.env.ADMIN_PASSWORD, newPassword: nueva },
+  });
+  paso('cambio obligatorio de la contrasena temporal', cambio.status === 200);
+  if (cambio.status !== 200) {
+    console.error('No se pudo cambiar la contrasena: ' + JSON.stringify(cambio.datos));
+    process.exit(1);
+  }
+  console.log('        NUEVA CONTRASENA DEL ADMINISTRADOR: ' + nueva);
+  admin = await req('POST', '/auth/login', { cuerpo: { dni: process.env.ADMIN_DNI, password: nueva } });
+  paso('entra con la contrasena nueva', admin.status === 200);
+}
+
 const tA = admin.datos.tokens.accessToken;
 
 const tab0 = await req('GET', '/asistencia/tablero?date=2026-09-18', { token: tA });

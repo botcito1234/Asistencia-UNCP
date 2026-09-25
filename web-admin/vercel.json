@@ -5,7 +5,11 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!assets/|fuentes/|marca/|favicon.png).*)",
+      "source": "/api/:ruta*",
+      "destination": "https://asistencia-uncp-production.up.railway.app/api/:ruta*"
+    },
+    {
+      "source": "/((?!api/|assets/|fuentes/|marca/|favicon.png).*)",
       "destination": "/index.html"
     }
   ],
