@@ -1,0 +1,55 @@
+# Despliegue de la API en un servidor propio, con la base de datos y el panel
+# fuera: PostgreSQL gestionado (Neon) y panel en Vercel.
+#
+# Solo corren dos contenedores: la API y Caddy, que resuelve HTTPS y renueva el
+# certificado sin intervencion.
+#
+#   docker compose -f docker-compose.produccion.yml up -d
+#
+# Las variables se leen de `entorno.env`, que NO se versiona.
+
+name: asistencia
+
+services:
+  api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: entorno.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: '4000'
+    volumes:
+      # Buffer de evidencias. Con EVIDENCE_REMOTE_STORAGE=true la fotografia
+      # vive aqui solo hasta que Drive confirma la copia; aun asi el volumen es
+      # necesario, porque un reinicio no puede perder lo que todavia no subio.
+      - evidencias:/datos/evidencias
+    expose:
+      - '4000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4000/api/v1/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMINIO: ${DOMINIO:?Defina DOMINIO en el entorno del servidor}
+
+volumes:
+  evidencias:
+  caddy_data:
+  caddy_config:

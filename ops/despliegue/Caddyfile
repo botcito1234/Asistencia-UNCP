@@ -1,0 +1,51 @@
+# HTTPS para la API. El certificado lo obtiene y renueva Caddy solo.
+#
+# El panel vive en Vercel, asi que aqui solo se publica la API. El navegador
+# llega desde otro dominio: quien autoriza ese origen es la propia API con
+# WEB_ADMIN_ORIGIN, no este archivo.
+
+{$DOMINIO} {
+	encode gzip
+
+	# El canal de novedades en vivo es una conexion larga: sin esto, Caddy la
+	# almacena en memoria y el panel recibe los avisos a tirones o los pierde.
+	@tiempo_real path /api/v1/notificaciones/stream
+	handle @tiempo_real {
+		reverse_proxy api:4000 {
+			flush_interval -1
+			transport http {
+				read_timeout 24h
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:4000 {
+			# Subir una fotografia desde una red movil lenta puede tardar.
+			transport http {
+				read_timeout 120s
+				write_timeout 120s
+			}
+		}
+	}
+
+	# Nada mas se publica desde este servidor.
+	handle {
+		respond "Control de Asistencia - API" 200
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	log {
+		output file /data/acceso.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

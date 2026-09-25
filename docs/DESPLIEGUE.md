@@ -188,7 +188,112 @@ pendientes no se cierran. Hay que usar un plan que mantenga el servicio
 despierto, o mover esas tareas a un programador externo que golpee
 `POST /api/v1/asistencia/cerrar-jornada`.
 
-### Pasos
+### Pasos con servidor propio gratuito (Oracle Cloud)
+
+Es la combinación recomendada: Neon para la base, Vercel para el panel, Drive
+para las fotografías y una máquina Always Free de Oracle para la API. La
+máquina **no se suspende**, así que el cierre de jornada de las 23:30 corre sin
+trucos y no hay arranque en frío.
+
+**1. Neon**
+
+1. Crear proyecto y base `asistencia`.
+2. Copiar las dos cadenas de conexión: la agrupada (`-pooler`) y la directa.
+3. Aplicar migraciones y datos iniciales, desde cualquier máquina:
+
+```bash
+cd backend
+DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npx prisma migrate deploy
+DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npm run seed
+```
+
+   El seed imprime la contraseña del administrador **una sola vez**.
+
+**2. La máquina**
+
+1. Oracle Cloud → **Compute → Instances → Create**.
+2. Imagen **Ubuntu 22.04**; forma **VM.Standard.A1.Flex** (ARM, Always Free):
+   con 2 OCPU y 12 GB va sobrado, y sigue dentro del plan gratuito.
+3. Guardar la clave SSH que ofrece al crearla: sin ella no se entra, y no se
+   puede recuperar después.
+4. Entrar y preparar:
+
+```bash
+ssh ubuntu@<ip-publica>
+git clone https://github.com/botcito1234/Asistencia-UNCP.git
+sudo bash Asistencia-UNCP/ops/despliegue/preparar-servidor.sh
+```
+
+   Instala Docker, pone la zona horaria con NTP —si el reloj se desvía, todas
+   las marcaciones se desplazan—, activa swap y abre los puertos en el
+   cortafuegos del sistema.
+
+5. **Abrir 80 y 443 también en la consola de Oracle**: Networking → Virtual
+   Cloud Networks → su VCN → Security Lists → Add Ingress Rules, `0.0.0.0/0`,
+   TCP, puertos 80 y 443.
+
+> Este es el tropiezo clásico de Oracle: las imágenes traen reglas de iptables
+> que descartan todo menos el 22. Se abre el puerto en la consola, el servidor
+> sigue sin responder y no hay ningún mensaje que lo explique. El script
+> resuelve la mitad del sistema; la otra mitad es la consola.
+
+**3. El dominio**
+
+Apuntar un registro `A` de `asistencia.suinstitucion.pe` a la IP pública. Sin
+dominio, Caddy no puede emitir el certificado y la aplicación móvil no podrá
+conectarse: Android bloquea el tráfico sin cifrar.
+
+Conviene decidirlo ahora: **la URL queda compilada dentro del APK**, y cambiarla
+después obliga a reinstalar en todos los teléfonos.
+
+**4. La API**
+
+```bash
+cd Asistencia-UNCP/ops/despliegue
+cp entorno.ejemplo entorno.env
+nano entorno.env              # cadenas de Neon, JWT_SECRET, Drive, dominios
+export DOMINIO=asistencia.suinstitucion.pe
+docker compose -f docker-compose.produccion.yml up -d --build
+```
+
+Comprobar:
+
+```bash
+curl https://asistencia.suinstitucion.pe/api/v1/salud
+```
+
+**5. El panel, en Vercel**
+
+1. **Add New → Project** → el repositorio.
+2. **Root Directory**: `web-admin`. El `vercel.json` ya trae la compilación y
+   las reescrituras.
+3. Variable: `VITE_API_BASE_URL=https://asistencia.suinstitucion.pe`
+4. Desplegar, copiar la URL resultante y ponerla en `WEB_ADMIN_ORIGIN` del
+   `entorno.env`, y reiniciar la API:
+
+```bash
+docker compose -f docker-compose.produccion.yml up -d
+```
+
+   Sin ese paso el navegador bloquea todas las peticiones por CORS.
+
+**6. La aplicación**
+
+```bash
+cd mobile
+flutter build apk --release --dart-define=API_BASE_URL=https://asistencia.suinstitucion.pe
+```
+
+**7. Actualizar después**
+
+```bash
+cd Asistencia-UNCP && git pull
+cd ops/despliegue && docker compose -f docker-compose.produccion.yml up -d --build
+```
+
+---
+
+### Pasos con plataforma gestionada de pago
 
 **Neon**
 

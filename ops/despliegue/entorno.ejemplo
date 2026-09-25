@@ -1,0 +1,65 @@
+# Variables de la API en produccion.
+#
+#   cp entorno.ejemplo entorno.env   y complete los valores.
+#
+# `entorno.env` NO se versiona: contiene credenciales.
+
+# --- Identidad del servicio ---------------------------------------------------
+NODE_ENV=production
+APP_NAME=Control de Asistencia
+APP_TIMEZONE=America/Lima
+
+# Dominio publico de la API. Debe coincidir con el del Caddyfile y con el que
+# se compila dentro del APK.
+PUBLIC_BASE_URL=https://asistencia.suinstitucion.pe
+
+# Origen del panel, tal cual lo sirve Vercel, sin barra final. Sin esto el
+# navegador bloquea todas las peticiones por CORS.
+WEB_ADMIN_ORIGIN=https://asistencia-uncp.vercel.app
+
+# Caddy corre por delante: sin esto, el limitador de tasa y la auditoria
+# registrarian la IP del contenedor en lugar de la del cliente.
+TRUST_PROXY=true
+
+# --- Base de datos (Neon) -----------------------------------------------------
+# La agrupada para la aplicacion; la directa para las migraciones. Se
+# distinguen por el `-pooler` en el nombre del servidor.
+DATABASE_URL=postgresql://usuario:clave@ep-xxxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
+DIRECT_DATABASE_URL=postgresql://usuario:clave@ep-xxxx.region.aws.neon.tech/asistencia?sslmode=require
+
+# --- Secreto de sesion --------------------------------------------------------
+# Generar con: openssl rand -base64 48
+# Cambiarlo cierra todas las sesiones abiertas.
+JWT_SECRET=
+
+# --- Evidencias ---------------------------------------------------------------
+STORAGE_ROOT=/datos/evidencias
+
+# Con true la fotografia se sube a Google Drive y la copia local se borra en
+# cuanto Drive confirma el mismo MD5. Exige la seccion de Drive completa.
+EVIDENCE_REMOTE_STORAGE=true
+EVIDENCE_LOCAL_RETENTION_MINUTES=10
+
+# --- Google Drive -------------------------------------------------------------
+GOOGLE_DRIVE_ENABLED=true
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+
+# Autorizacion de un usuario real (ops/autorizar-drive.mjs). Es la via que
+# funciona cuando la organizacion no puede crear unidades compartidas.
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REFRESH_TOKEN=
+
+# Alternativa: cuenta de servicio. Solo sirve contra una unidad compartida.
+# GOOGLE_SERVICE_ACCOUNT_EMAIL=
+# GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+# GOOGLE_DRIVE_SHARED_DRIVE_ID=
+
+# --- Tareas programadas -------------------------------------------------------
+# Cierre de jornada, archivado y subida de evidencias corren dentro del
+# proceso. Con varias replicas, dejarlo en true en una sola.
+ENABLE_CRON=true
+
+# --- Notificaciones (opcional) ------------------------------------------------
+PUSH_ENABLED=false
+SMTP_ENABLED=false

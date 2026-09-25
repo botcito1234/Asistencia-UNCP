@@ -43,3 +43,6 @@ Thumbs.db
 # Editores
 .vscode/
 .idea/
+
+# Despliegue: el entorno real nunca se versiona
+ops/despliegue/entorno.env
