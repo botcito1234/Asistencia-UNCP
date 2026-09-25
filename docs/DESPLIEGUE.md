@@ -195,19 +195,29 @@ para las fotografías y una máquina Always Free de Oracle para la API. La
 máquina **no se suspende**, así que el cierre de jornada de las 23:30 corre sin
 trucos y no hay arranque en frío.
 
-**1. Neon**
+**1. La base de datos**
 
-1. Crear proyecto y base `asistencia`.
-2. Copiar las dos cadenas de conexión: la agrupada (`-pooler`) y la directa.
-3. Aplicar migraciones y datos iniciales, desde cualquier máquina:
+Con un servidor propio que no se suspende, lo más simple es **PostgreSQL en la
+misma máquina**: una dependencia externa menos, sin cadenas de conexión
+agrupadas y con los datos personales bajo control de la institución. Para 60
+practicantes sobra de largo.
+
+Se activa con el perfil `base-local` del compose y se completa `POSTGRES_PASSWORD`
+en `entorno.env`. A cambio, **los respaldos corren por su cuenta**: hay que
+programar `ops/respaldo.sh` (paso 7).
+
+Si se prefiere un PostgreSQL gestionado (Neon, Supabase), se levanta el compose
+sin ese perfil y se ponen las dos cadenas de conexión en `entorno.env`.
+
+Las migraciones y los datos iniciales se aplican una vez, ya con la base en pie:
 
 ```bash
-cd backend
-DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npx prisma migrate deploy
-DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npm run seed
+cd ~/Asistencia-UNCP/ops/despliegue
+docker compose -f docker-compose.produccion.yml exec api npx prisma migrate deploy
+docker compose -f docker-compose.produccion.yml exec api npm run seed
 ```
 
-   El seed imprime la contraseña del administrador **una sola vez**.
+El seed imprime la contraseña del administrador **una sola vez**.
 
 **2. La máquina**
 
@@ -253,8 +263,16 @@ cd Asistencia-UNCP/ops/despliegue
 cp entorno.ejemplo entorno.env
 nano entorno.env              # cadenas de Neon, JWT_SECRET, Drive, dominios
 export DOMINIO=asistencia.suinstitucion.pe
-docker compose -f docker-compose.produccion.yml up -d --build
+
+# Con PostgreSQL en la misma máquina:
+docker compose --profile base-local -f docker-compose.produccion.yml up -d --build
+
+# Con base gestionada, sin el perfil:
+# docker compose -f docker-compose.produccion.yml up -d --build
 ```
+
+La API arranca antes que PostgreSQL la primera vez y se reinicia sola hasta que
+la base responde; es normal ver un par de reintentos en `docker compose logs`.
 
 Comprobar:
 
@@ -284,7 +302,21 @@ cd mobile
 flutter build apk --release --dart-define=API_BASE_URL=https://asistencia.suinstitucion.pe
 ```
 
-**7. Actualizar después**
+**7. Respaldos**
+
+Con la base en la propia máquina, nadie los hace por usted. `ops/respaldo.sh`
+vuelca la base, copia las evidencias y escribe un manifiesto con hashes para
+poder comprobar después que la copia está íntegra:
+
+```bash
+sudo crontab -e
+0 2 * * * /home/ubuntu/Asistencia-UNCP/ops/respaldo.sh /mnt/respaldos >> /var/log/asistencia-respaldo.log 2>&1
+```
+
+Un respaldo que nunca se restauró no es un respaldo: pruebe `ops/restaurar.sh`
+en una máquina aparte al menos una vez.
+
+**8. Actualizar después**
 
 ```bash
 cd Asistencia-UNCP && git pull

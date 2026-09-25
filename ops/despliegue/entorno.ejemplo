@@ -21,11 +21,22 @@ WEB_ADMIN_ORIGIN=https://asistencia-uncp.vercel.app
 # registrarian la IP del contenedor en lugar de la del cliente.
 TRUST_PROXY=true
 
-# --- Base de datos (Neon) -----------------------------------------------------
-# La agrupada para la aplicacion; la directa para las migraciones. Se
-# distinguen por el `-pooler` en el nombre del servidor.
-DATABASE_URL=postgresql://usuario:clave@ep-xxxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
-DIRECT_DATABASE_URL=postgresql://usuario:clave@ep-xxxx.region.aws.neon.tech/asistencia?sslmode=require
+# --- Base de datos ------------------------------------------------------------
+# OPCION A: PostgreSQL en este mismo servidor (perfil `base-local` del compose).
+# Es lo mas simple: una dependencia externa menos y los datos bajo control
+# propio. Los respaldos corren por su cuenta, con ops/respaldo.sh.
+POSTGRES_USER=asistencia
+POSTGRES_PASSWORD=
+POSTGRES_DB=asistencia
+DATABASE_URL=postgresql://asistencia:LA_MISMA_CLAVE@db:5432/asistencia?schema=public
+DIRECT_DATABASE_URL=postgresql://asistencia:LA_MISMA_CLAVE@db:5432/asistencia?schema=public
+
+# OPCION B: PostgreSQL gestionado (Neon, Supabase). La cadena agrupada para la
+# aplicacion y la directa para las migraciones; se distinguen por el `-pooler`
+# en el nombre del servidor. Si usa esta opcion, borre POSTGRES_* de arriba y
+# levante el compose SIN el perfil `base-local`.
+# DATABASE_URL=postgresql://usuario:clave@ep-xxxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
+# DIRECT_DATABASE_URL=postgresql://usuario:clave@ep-xxxx.region.aws.neon.tech/asistencia?sslmode=require
 
 # --- Secreto de sesion --------------------------------------------------------
 # Generar con: openssl rand -base64 48

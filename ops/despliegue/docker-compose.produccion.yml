@@ -11,6 +11,36 @@
 name: asistencia
 
 services:
+  # PostgreSQL en el mismo servidor. Se activa con el perfil `base-local`:
+  #
+  #   docker compose --profile base-local -f docker-compose.produccion.yml up -d
+  #
+  # Sin ese perfil, el servicio no arranca y DATABASE_URL apunta a un
+  # PostgreSQL gestionado. Para 60 practicantes, una base en la propia maquina
+  # sobra: quita una dependencia externa y deja los datos bajo control propio.
+  # A cambio, los respaldos corren por su cuenta (ops/respaldo.sh).
+  db:
+    profiles: ['base-local']
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-asistencia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-asistencia}
+      # Ordenacion estable e independiente del sistema anfitrion.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+    ports:
+      # Solo en localhost: la base nunca se expone a internet.
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-asistencia} -d ${POSTGRES_DB:-asistencia}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   api:
     build:
       context: ../../backend
@@ -51,5 +81,6 @@ services:
 
 volumes:
   evidencias:
+  datos_postgres:
   caddy_data:
   caddy_config:
