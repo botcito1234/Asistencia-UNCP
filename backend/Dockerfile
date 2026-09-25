@@ -31,8 +31,9 @@ RUN npm ci --omit=dev && npx prisma generate
 FROM node:22-alpine AS runtime
 
 # tini gestiona las senales correctamente: sin el, SIGTERM no llega al proceso
-# de Node y el apagado ordenado nunca se ejecuta.
-RUN apk add --no-cache tini
+# de Node y el apagado ordenado nunca se ejecuta. su-exec permite bajar de
+# privilegios despues de ajustar los permisos del volumen.
+RUN apk add --no-cache tini su-exec
 
 ENV NODE_ENV=production
 WORKDIR /app
@@ -51,14 +52,15 @@ COPY --chown=asistencia:nodejs assets ./assets
 # al usuario de la aplicacion.
 RUN mkdir -p /datos/evidencias && chown -R asistencia:nodejs /datos
 
-USER asistencia
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/entrada.sh
 
+# El contenedor entra como root y baja de privilegios en el arranque, despues de
+# ajustar el dueno del volumen: un volumen recien montado pertenece a root y
+# pisa los permisos fijados al construir la imagen.
 EXPOSE 4000
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrada.sh"]
 
-# Las migraciones se aplican al arrancar: un despliegue deja siempre la base al
-# dia sin un paso manual que se pueda olvidar.
 # Las migraciones se aplican al arrancar: un despliegue nuevo no puede quedar
 # con el esquema viejo. `prisma` viaja en dependencies a proposito, para que el
 # CLI este dentro de la imagen y el arranque no dependa de poder descargarlo.
