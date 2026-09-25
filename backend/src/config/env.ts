@@ -150,8 +150,30 @@ function load(): AppConfig {
     if (!cfg.PUBLIC_BASE_URL.startsWith('https://')) {
       problems.push('PUBLIC_BASE_URL debe usar https en producción.');
     }
-    if (cfg.GOOGLE_DRIVE_ENABLED && !cfg.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
-      problems.push('GOOGLE_DRIVE_ENABLED=true pero falta GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.');
+    // Drive admite dos formas de acceso y basta con una. La cuenta de servicio
+    // solo sirve contra unidades compartidas; la autorizacion de un usuario
+    // funciona con una carpeta normal. Exigir la primera dejaba fuera a quien
+    // usa la segunda, que es la unica viable sin Workspace con unidades
+    // compartidas.
+    const conCuentaDeServicio = Boolean(cfg.GOOGLE_SERVICE_ACCOUNT_EMAIL && cfg.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+    const conUsuario = Boolean(
+      cfg.GOOGLE_OAUTH_CLIENT_ID && cfg.GOOGLE_OAUTH_CLIENT_SECRET && cfg.GOOGLE_OAUTH_REFRESH_TOKEN,
+    );
+
+    if (cfg.GOOGLE_DRIVE_ENABLED && !conCuentaDeServicio && !conUsuario) {
+      problems.push(
+        'GOOGLE_DRIVE_ENABLED=true pero no hay credenciales: complete ' +
+          'GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, ' +
+          'o GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET y GOOGLE_OAUTH_REFRESH_TOKEN.',
+      );
+    }
+    if (cfg.GOOGLE_DRIVE_ENABLED && !cfg.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
+      problems.push('GOOGLE_DRIVE_ENABLED=true pero falta GOOGLE_DRIVE_ROOT_FOLDER_ID.');
+    }
+    // Sin Drive, el almacenamiento remoto de evidencias no tiene donde subir:
+    // la fotografia se quedaria en disco creyendo que va a viajar.
+    if (cfg.EVIDENCE_REMOTE_STORAGE && !cfg.GOOGLE_DRIVE_ENABLED) {
+      problems.push('EVIDENCE_REMOTE_STORAGE=true exige GOOGLE_DRIVE_ENABLED=true.');
     }
     if (problems.length) {
       throw new Error(`Configuración no apta para producción:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
