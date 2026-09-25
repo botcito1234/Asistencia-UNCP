@@ -29,7 +29,8 @@ POSTGRES_USER=asistencia
 POSTGRES_PASSWORD=
 POSTGRES_DB=asistencia
 DATABASE_URL=postgresql://asistencia:LA_MISMA_CLAVE@db:5432/asistencia?schema=public
-DIRECT_DATABASE_URL=postgresql://asistencia:LA_MISMA_CLAVE@db:5432/asistencia?schema=public
+# DIRECT_DATABASE_URL no hace falta aqui: sin agrupador delante, vale lo mismo
+# que DATABASE_URL y el arranque la deduce sola.
 
 # OPCION B: PostgreSQL gestionado (Neon, Supabase). La cadena agrupada para la
 # aplicacion y la directa para las migraciones; se distinguen por el `-pooler`
