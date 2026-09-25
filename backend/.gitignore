@@ -2,7 +2,9 @@ node_modules/
 dist/
 .env
 .env.local
-storage/
+# Solo la carpeta de evidencias de la raiz del backend. Sin la barra inicial,
+# el patron tambien ignoraba src/infra/storage/, que es codigo fuente.
+/storage/
 tmp/
 coverage/
 *.log
