@@ -17,6 +17,7 @@ import { errors } from '../../core/errors.js';
 import { config } from '../../config/env.js';
 import { hmacHex, safeEquals } from '../../core/crypto.js';
 import { evidenceStorage } from '../../infra/storage/evidence-storage.js';
+import { leerEvidencia, verificarEvidenciaRemota } from './evidence-remote.service.js';
 import { recordAudit, type AuditContext } from '../audit/audit.service.js';
 
 export interface EvidenceAccess {
@@ -96,12 +97,10 @@ export async function readEvidence(
     );
   }
 
-  const exists = await evidenceStorage.exists(evidence.storageKey);
-  if (!exists) {
-    throw errors.notFound('El archivo de la evidencia');
-  }
-
-  const buffer = await evidenceStorage.read(evidence.storageKey);
+  // La fotografia puede estar en disco o, si ya se subio y se libero la copia
+  // local, en Drive. Se lee siempre por aqui para que la lectura quede
+  // auditada, este donde este el binario.
+  const buffer = await leerEvidencia(evidence);
   const { sha256Hex } = await import('../../core/crypto.js');
   const actualHash = sha256Hex(buffer);
   const integrityOk = actualHash === evidence.sha256;
@@ -181,18 +180,35 @@ export async function verifyPeriodIntegrity(from: Date, to: Date, siteId?: strin
       uploadedAt: { gte: from, lte: to },
       ...(siteId ? { intern: { siteId } } : {}),
     },
-    select: { id: true, storageKey: true, sha256: true },
+    select: {
+      id: true,
+      storageKey: true,
+      sha256: true,
+      sizeBytes: true,
+      remoteFileId: true,
+      remoteMd5: true,
+      localReleasedAt: true,
+    },
   });
 
   const report: IntegrityReport = { revisadas: evidences.length, integras: 0, alteradas: [], faltantes: [] };
 
   for (const e of evidences) {
-    if (!(await evidenceStorage.exists(e.storageKey))) {
-      report.faltantes.push(e.id);
+    if (await evidenceStorage.exists(e.storageKey)) {
+      if (await evidenceStorage.verifyIntegrity(e.storageKey, e.sha256)) report.integras++;
+      else report.alteradas.push(e.id);
       continue;
     }
-    if (await evidenceStorage.verifyIntegrity(e.storageKey, e.sha256)) report.integras++;
-    else report.alteradas.push(e.id);
+
+    // Sin copia local: se comprueba contra Drive por MD5, sin descargar el
+    // binario. Descargar miles de fotografias para verificarlas seria lento y
+    // no diria nada que el MD5 no diga.
+    if (e.remoteFileId && (await verificarEvidenciaRemota(e))) {
+      report.integras++;
+      continue;
+    }
+
+    report.faltantes.push(e.id);
   }
 
   return report;

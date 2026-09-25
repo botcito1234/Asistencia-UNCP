@@ -143,15 +143,27 @@ Sirve si no se quiere administrar un servidor. El panel es estático y va en
 Vercel; la API en Railway; PostgreSQL en Neon. Hay **tres condiciones** que no
 son opcionales.
 
-### Condición 1: volumen persistente en Railway
+### Condición 1: dónde viven las fotografías
 
-Las fotografías se guardan en el sistema de archivos, no en la base de datos.
-El contenedor de Railway tiene disco **efímero**: sin un volumen, cada
-despliegue borra todas las evidencias.
+Las fotografías no se guardan en la base de datos, y los contenedores tienen
+disco **efímero**: sin previsión, cada despliegue borra todas las evidencias.
+Hay dos formas de resolverlo.
 
-En el servicio de Railway: **Variables → Volumes → Add volume**, montarlo en
-`/datos` y poner `STORAGE_ROOT=/datos/evidencias`. Con 60 practicantes son unos
-260 MB al mes; con la retención de 6 meses, 5 GB dan holgura.
+**a) Fotografías en Google Drive** (`EVIDENCE_REMOTE_STORAGE=true`). La
+fotografía se guarda en disco al marcar, se sube a Drive en segundo plano y la
+copia local se borra **solo** cuando Drive confirma el mismo MD5. El servidor
+deja de necesitar volumen persistente, que es lo que encarece el hospedaje.
+Requiere Drive configurado (§6).
+
+**b) Fotografías en el servidor** (valor por defecto). Hace falta un volumen
+persistente montado en `/datos`, con `STORAGE_ROOT=/datos/evidencias`. Con 60
+practicantes son unos 260 MB al mes; con la retención de 6 meses, 5 GB dan
+holgura.
+
+La opción (a) tiene una consecuencia que conviene conocer: quien tenga acceso a
+esa carpeta de Drive puede ver las fotografías **sin que quede rastro** en la
+auditoría del sistema, que sí registra cada lectura hecha desde el panel. Por
+eso la carpeta no debería compartirse con nadie más.
 
 ### Condición 2: las dos conexiones de Neon
 

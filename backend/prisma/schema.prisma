@@ -506,8 +506,25 @@ model EvidencePhoto {
   faceEmbeddingModel String? @map("face_embedding_model") @db.VarChar(60)
 
   archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  /// Id del PAQUETE mensual en Drive, cuando la evidencia ya fue archivada.
   driveFileId  String?   @map("drive_file_id") @db.VarChar(120)
   releasedAt   DateTime? @map("released_at") @db.Timestamptz(6)
+
+  // --- Copia remota de la fotografia -----------------------------------------
+  // Con EVIDENCE_REMOTE_STORAGE la fotografia vive en Google Drive y el disco
+  // del servidor es solo un paso intermedio. El binario se sube en segundo
+  // plano y la copia local se borra SOLO cuando Drive confirma el mismo MD5:
+  // hasta entonces, la unica copia sigue siendo la local.
+  /// Id del archivo individual en Drive.
+  remoteFileId String?   @map("remote_file_id") @db.VarChar(120)
+  /// MD5 que devolvio Drive al subir. Permite verificar sin descargar.
+  remoteMd5    String?   @map("remote_md5") @db.VarChar(32)
+  /// Momento en que la subida quedo verificada contra Drive.
+  remoteAt     DateTime? @map("remote_at") @db.Timestamptz(6)
+  remoteAttempts Int     @default(0) @map("remote_attempts")
+  remoteError  String?   @map("remote_error") @db.VarChar(300)
+  /// Momento en que se borro la copia local, ya con la remota verificada.
+  localReleasedAt DateTime? @map("local_released_at") @db.Timestamptz(6)
   archiveBatchId String? @map("archive_batch_id") @db.Uuid
   archiveBatch   ArchiveBatch? @relation(fields: [archiveBatchId], references: [id], onDelete: SetNull)
 
@@ -516,6 +533,7 @@ model EvidencePhoto {
 
   @@index([internId, kind, uploadedAt])
   @@index([status, uploadedAt])
+  @@index([remoteAt, uploadedAt])
   @@map("evidence_photo")
 }
 

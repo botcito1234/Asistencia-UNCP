@@ -15,6 +15,11 @@ import { prisma } from '../infra/db/prisma.js';
 import { closeDueSites } from '../modules/attendance/day-closure.service.js';
 import { runRetentionSweep } from '../modules/archive/archive.service.js';
 import { getSettings } from '../modules/settings/settings.service.js';
+import {
+  isRemoteEvidenceEnabled,
+  subirEvidenciasPendientes,
+  liberarCopiasLocales,
+} from '../modules/evidence/evidence-remote.service.js';
 
 const tasks: ScheduledTask[] = [];
 
@@ -43,6 +48,31 @@ export function startScheduler(): void {
       { timezone: config.APP_TIMEZONE },
     ),
   );
+
+  // --- Copia de evidencias a Drive -----------------------------------------
+  // Cada 5 minutos, si el almacenamiento remoto esta activo. La fotografia se
+  // guarda en disco al marcar y se sube despues: asi marcar nunca espera a
+  // Google. La copia local se borra solo cuando Drive confirma el mismo MD5.
+  if (isRemoteEvidenceEnabled()) {
+    tasks.push(
+      cron.schedule(
+        '*/5 * * * *',
+        () => {
+          void guard('evidencias-remotas', async () => {
+            const subida = await subirEvidenciasPendientes();
+            const liberadas = await liberarCopiasLocales();
+            if (subida.subidas > 0 || subida.fallidas > 0 || liberadas > 0) {
+              logger.info(
+                { subidas: subida.subidas, fallidas: subida.fallidas, liberadas },
+                'Evidencias sincronizadas con Drive.',
+              );
+            }
+          });
+        },
+        { timezone: config.APP_TIMEZONE },
+      ),
+    );
+  }
 
   // --- Archivado por retencion ---------------------------------------------
   // El dia 2 de cada mes a las 03:00: el mes anterior ya esta cerrado y la

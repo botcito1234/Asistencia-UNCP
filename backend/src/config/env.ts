@@ -84,6 +84,15 @@ const schema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(''),
   GOOGLE_OAUTH_REFRESH_TOKEN: z.string().optional().default(''),
+  /**
+   * Con true, cada fotografia se sube a Drive en segundo plano y la copia local
+   * se borra en cuanto Drive confirma el mismo MD5. Permite hospedar la API sin
+   * volumen persistente. Marcar asistencia NO depende de Drive: la fotografia
+   * se guarda primero en disco y la subida ocurre despues.
+   */
+  EVIDENCE_REMOTE_STORAGE: bool(false),
+  /** Minutos que se conserva la copia local despues de verificarla en Drive. */
+  EVIDENCE_LOCAL_RETENTION_MINUTES: int(10),
 
   // --- Notificaciones ------------------------------------------------------
   PUSH_ENABLED: bool(false),

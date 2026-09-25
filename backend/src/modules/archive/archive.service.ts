@@ -25,6 +25,7 @@ import { logger } from '../../core/logger.js';
 import { errors } from '../../core/errors.js';
 import { sha256Hex } from '../../core/crypto.js';
 import { evidenceStorage } from '../../infra/storage/evidence-storage.js';
+import { leerEvidencia, verificarEvidenciaRemota } from '../evidence/evidence-remote.service.js';
 import { dateOnlyValue, startOfMonthString, endOfMonthString, addMonthsToDateString, businessDateString, startOfLocalDay, endOfLocalDay } from '../../core/time.js';
 import { buildReport } from '../reports/report.data.js';
 import { generateExcel } from '../reports/excel.generator.js';
@@ -118,17 +119,27 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
 
     for (const e of evidences) {
       if (e.releasedAt) continue; // ya liberada en un archivado anterior
-      if (!(await evidenceStorage.exists(e.storageKey))) {
-        integrity.faltantes.push(e.id);
+
+      if (await evidenceStorage.exists(e.storageKey)) {
+        if (await evidenceStorage.verifyIntegrity(e.storageKey, e.sha256)) {
+          integrity.integras++;
+          usableEvidences.push(e);
+        } else {
+          integrity.alteradas.push(e.id);
+          usableEvidences.push(e); // se archiva igual, marcada como alterada
+        }
         continue;
       }
-      if (await evidenceStorage.verifyIntegrity(e.storageKey, e.sha256)) {
+
+      // Sin copia local: con almacenamiento remoto activo la fotografia vive en
+      // Drive. Se comprueba por MD5 y, si esta bien, se traera al empaquetar.
+      if (e.remoteFileId && (await verificarEvidenciaRemota(e))) {
         integrity.integras++;
         usableEvidences.push(e);
-      } else {
-        integrity.alteradas.push(e.id);
-        usableEvidences.push(e); // se archiva igual, marcada como alterada
+        continue;
       }
+
+      integrity.faltantes.push(e.id);
     }
 
     if (integrity.alteradas.length > 0) {
@@ -224,15 +235,24 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
       }
     }
 
-    await buildZip(zipPath, {
-      excel,
-      pdf,
-      metadata,
-      evidences: usableEvidences.map((e) => ({
-        storageKey: e.storageKey,
-        name: evidenceIndex.get(e.id)?.name ?? e.id + '.jpg',
-      })),
-    });
+    // El paquete debe ser autocontenido: lo que ya no esta en disco se descarga
+    // de Drive para incluirlo, y si no se puede, se anota en las advertencias.
+    const evidencesParaZip = [];
+    for (const e of usableEvidences) {
+      const name = evidenceIndex.get(e.id)?.name ?? e.id + '.jpg';
+      if (await evidenceStorage.exists(e.storageKey)) {
+        evidencesParaZip.push({ storageKey: e.storageKey, name, buffer: null });
+        continue;
+      }
+      try {
+        evidencesParaZip.push({ storageKey: e.storageKey, name, buffer: await leerEvidencia(e) });
+      } catch (err) {
+        warnings.push('No se pudo recuperar de Drive la fotografía ' + e.id + '.');
+        logger.warn({ err, evidenciaId: e.id }, 'Evidencia remota no recuperable al archivar.');
+      }
+    }
+
+    await buildZip(zipPath, { excel, pdf, metadata, evidences: evidencesParaZip });
 
     const zipBuffer = await readFile(zipPath);
     const zipStat = await stat(zipPath);
@@ -437,7 +457,7 @@ async function buildZip(
     excel: Buffer;
     pdf: Buffer;
     metadata: unknown;
-    evidences: { storageKey: string; name: string }[];
+    evidences: { storageKey: string; name: string; buffer: Buffer | null }[];
   },
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -456,7 +476,13 @@ async function buildZip(
 
     for (const e of content.evidences) {
       try {
-        archive.file(evidenceStorage.absolutePath(e.storageKey), { name: e.name });
+        if (e.buffer) {
+          // Evidencia que ya solo vive en Drive: se trajo para empaquetarla,
+          // de modo que el paquete siga siendo autocontenido.
+          archive.append(e.buffer, { name: e.name });
+        } else {
+          archive.file(evidenceStorage.absolutePath(e.storageKey), { name: e.name });
+        }
       } catch (err) {
         logger.warn({ err, storageKey: e.storageKey }, 'No se pudo incluir una evidencia en el paquete.');
       }
