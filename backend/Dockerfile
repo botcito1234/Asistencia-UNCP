@@ -59,4 +59,7 @@ ENTRYPOINT ["/sbin/tini", "--"]
 
 # Las migraciones se aplican al arrancar: un despliegue deja siempre la base al
 # dia sin un paso manual que se pueda olvidar.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Las migraciones se aplican al arrancar: un despliegue nuevo no puede quedar
+# con el esquema viejo. `prisma` viaja en dependencies a proposito, para que el
+# CLI este dentro de la imagen y el arranque no dependa de poder descargarlo.
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
