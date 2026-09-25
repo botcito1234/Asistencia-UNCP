@@ -172,12 +172,13 @@ agrupada; `prisma migrate` necesita la directa, porque el agrupador no admite
 las sentencias de esquema.
 
 ```bash
+# Para la aplicacion, la conexion agrupada:
 DATABASE_URL=postgresql://...@ep-xxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
-DIRECT_DATABASE_URL=postgresql://...@ep-xxx.region.aws.neon.tech/asistencia?sslmode=require
 ```
 
-La diferencia es el `-pooler` del nombre. Con un PostgreSQL propio, ambas valen
-lo mismo.
+Para **aplicar las migraciones**, en cambio, hay que apuntar `DATABASE_URL` a la
+conexion **directa** (la que no lleva `-pooler`): el agrupador no admite las
+sentencias de esquema. Con un PostgreSQL propio no hay distincion.
 
 ### Condición 3: la API no puede dormirse
 
@@ -341,7 +342,6 @@ cd ops/despliegue && docker compose -f docker-compose.produccion.yml up -d --bui
 
 ```bash
 DATABASE_URL=<cadena agrupada de Neon>
-DIRECT_DATABASE_URL=<cadena directa de Neon>
 JWT_SECRET=<openssl rand -base64 48>
 STORAGE_ROOT=/datos/evidencias
 PUBLIC_BASE_URL=https://<tu-api>.up.railway.app
@@ -355,8 +355,8 @@ APP_TIMEZONE=America/Lima
 
 ```bash
 cd backend
-DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npx prisma migrate deploy
-DATABASE_URL="<agrupada>" DIRECT_DATABASE_URL="<directa>" npm run seed
+DATABASE_URL="<directa>" npx prisma migrate deploy
+DATABASE_URL="<directa>" npm run seed
 ```
 
    El seed imprime la contraseña del administrador **una sola vez**.

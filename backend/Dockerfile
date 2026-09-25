@@ -62,7 +62,4 @@ ENTRYPOINT ["/sbin/tini", "--"]
 # Las migraciones se aplican al arrancar: un despliegue nuevo no puede quedar
 # con el esquema viejo. `prisma` viaja en dependencies a proposito, para que el
 # CLI este dentro de la imagen y el arranque no dependa de poder descargarlo.
-# DIRECT_DATABASE_URL solo se diferencia de DATABASE_URL cuando hay un
-# agrupador delante (Neon, Supabase). Con un PostgreSQL normal son la misma, y
-# exigirla convertia una diferencia irrelevante en un fallo de arranque.
-CMD ["sh", "-c", "export DIRECT_DATABASE_URL=\"${DIRECT_DATABASE_URL:-$DATABASE_URL}\" && ./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]

@@ -16,16 +16,18 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
-  // La aplicacion usa la conexion agrupada; las migraciones, la directa.
-  //
-  // Los PostgreSQL gestionados (Neon, Supabase) ponen un agrupador delante:
-  // reparte pocas conexiones entre muchos clientes, pero no admite las
-  // sentencias de esquema que necesita `prisma migrate`. Con un PostgreSQL
-  // propio ambas variables valen lo mismo.
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
+// Nota sobre PostgreSQL gestionados con agrupador de conexiones (Neon,
+// Supabase): el agrupador no admite las sentencias de esquema que necesita
+// `prisma migrate`. En ese caso, ejecute las migraciones apuntando
+// DATABASE_URL a la conexion DIRECTA (la que no lleva `-pooler` en el nombre)
+// y deje la agrupada para la aplicacion.
+//
+// Se probo declarar aqui un `directUrl` con su propia variable, pero obliga a
+// definirla siempre: en un despliegue con PostgreSQL normal, donde ambas son
+// la misma cadena, un olvido deja el contenedor en ciclo de reinicio.
 
 // -----------------------------------------------------------------------------
 // Enumeraciones

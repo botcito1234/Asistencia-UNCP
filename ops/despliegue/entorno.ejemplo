@@ -29,15 +29,12 @@ POSTGRES_USER=asistencia
 POSTGRES_PASSWORD=
 POSTGRES_DB=asistencia
 DATABASE_URL=postgresql://asistencia:LA_MISMA_CLAVE@db:5432/asistencia?schema=public
-# DIRECT_DATABASE_URL no hace falta aqui: sin agrupador delante, vale lo mismo
-# que DATABASE_URL y el arranque la deduce sola.
 
-# OPCION B: PostgreSQL gestionado (Neon, Supabase). La cadena agrupada para la
-# aplicacion y la directa para las migraciones; se distinguen por el `-pooler`
-# en el nombre del servidor. Si usa esta opcion, borre POSTGRES_* de arriba y
-# levante el compose SIN el perfil `base-local`.
+# OPCION B: PostgreSQL gestionado (Neon, Supabase). Borre POSTGRES_* de arriba
+# y levante el compose SIN el perfil `base-local`. Si el proveedor pone un
+# agrupador delante, aplique las migraciones apuntando a la conexion DIRECTA
+# (la que no lleva `-pooler`) y deje la agrupada para la aplicacion.
 # DATABASE_URL=postgresql://usuario:clave@ep-xxxx-pooler.region.aws.neon.tech/asistencia?sslmode=require
-# DIRECT_DATABASE_URL=postgresql://usuario:clave@ep-xxxx.region.aws.neon.tech/asistencia?sslmode=require
 
 # --- Secreto de sesion --------------------------------------------------------
 # Generar con: openssl rand -base64 48
