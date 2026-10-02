@@ -465,17 +465,22 @@ export function Modal({
   ancho?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCerrarRef = useRef(onCerrar);
+
+  useEffect(() => {
+    onCerrarRef.current = onCerrar;
+  }, [onCerrar]);
 
   useEffect(() => {
     if (!abierto) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCerrar();
+      if (e.key === "Escape") onCerrarRef.current();
     };
     document.addEventListener("keydown", onKey);
     // Se mueve el foco al dialogo para que el teclado no quede detras.
     ref.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [abierto, onCerrar]);
+  }, [abierto]);
 
   if (!abierto) return null;
 

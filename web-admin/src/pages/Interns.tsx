@@ -4,7 +4,7 @@
  * El alta es individual por decision de alcance: no hay importacion masiva.
  * Al crear se devuelve una contrasena temporal que se muestra UNA vez.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -26,7 +26,7 @@ import {
   Modal,
   useToast,
 } from '../components/ui';
-import type { Practicante, Pagina, Sede } from '../lib/types';
+import type { ConsultaDni, Practicante, Pagina, Sede } from '../lib/types';
 
 export function Interns() {
   const [busqueda, setBusqueda] = useState('');
@@ -194,6 +194,36 @@ function ModalNuevoPracticante({
   );
   const [error, setError] = useState<string | null>(null);
   const [credencial, setCredencial] = useState<{ dni: string; password: string } | null>(null);
+  const [estadoDni, setEstadoDni] = useState<'idle' | 'consultando' | 'encontrado' | 'no-encontrado'>('idle');
+
+  const { mutate: consultarDni, isPending: consultandoDni } = useMutation({
+    mutationFn: (dni: string) => api.get<ConsultaDni>('/dni/' + dni),
+    onSuccess: (data, dni) => {
+      setForm((actual) =>
+        actual.dni === dni
+          ? {
+              ...actual,
+              firstNames: data.nombres,
+              lastNames: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' '),
+            }
+          : actual,
+      );
+      setEstadoDni('encontrado');
+    },
+    onError: () => setEstadoDni('no-encontrado'),
+  });
+
+  useEffect(() => {
+    const dni = form.dni.trim();
+    if (!/^\d{8}$/.test(dni)) {
+      setEstadoDni('idle');
+      return;
+    }
+
+    setEstadoDni('consultando');
+    const timer = window.setTimeout(() => consultarDni(dni), 450);
+    return () => window.clearTimeout(timer);
+  }, [form.dni, consultarDni]);
 
   const crear = useMutation({
     mutationFn: () =>
@@ -274,6 +304,15 @@ function ModalNuevoPracticante({
               onChange={(e) => setForm({ ...form, dni: e.target.value.replace(/\D/g, '') })}
               placeholder="12345678"
             />
+            <p className="mt-1 min-h-5 text-xs" aria-live="polite">
+              {consultandoDni && <span className="text-slate-500">Consultando nombres...</span>}
+              {!consultandoDni && estadoDni === 'encontrado' && (
+                <span className="text-emerald-700">Datos encontrados y autocompletados.</span>
+              )}
+              {!consultandoDni && estadoDni === 'no-encontrado' && (
+                <span className="text-amber-700">No se encontraron datos. Puedes completarlos manualmente.</span>
+              )}
+            </p>
           </Field>
           <Field label="Sede" htmlFor="n-sede">
             <Select id="n-sede" value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })}>

@@ -37,6 +37,14 @@ export interface Sede {
   updatedAt?: string;
 }
 
+export interface ConsultaDni {
+  dni: string;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  nombreCompleto: string;
+}
+
 export interface TableroSede {
   siteId: string;
   siteCode: string;

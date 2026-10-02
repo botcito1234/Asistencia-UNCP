@@ -28,6 +28,7 @@ import { conductorRouter } from './http/routes/conductor.routes.js';
 import { suspensionRouter } from './http/routes/suspension.routes.js';
 import { mapsRouter } from './http/routes/maps.routes.js';
 import { bulkImportRouter } from './http/routes/bulk-import.routes.js';
+import { dniRouter } from './http/routes/dni.routes.js';
 import { prisma } from './infra/db/prisma.js';
 import { PRIVACY_POLICY } from './modules/privacy/policy.js';
 
@@ -131,6 +132,7 @@ export function createApp(): Express {
   app.use('/api/v1/suspensiones', suspensionRouter);
   app.use('/api/v1/mapas', mapsRouter);
   app.use('/api/v1/cargas-masivas', bulkImportRouter);
+  app.use('/api/v1/dni', dniRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

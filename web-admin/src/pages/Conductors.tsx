@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import type { DocenteConductor, Pagina, Practicante } from "../lib/types";
+import type {
+  ConsultaDni,
+  DocenteConductor,
+  Pagina,
+  Practicante,
+} from "../lib/types";
 import {
   Badge,
   Button,
@@ -36,6 +41,36 @@ export function Conductors() {
   const [correo, setCorreo] = useState("");
   const [telefono, setTelefono] = useState("");
   const [password, setPassword] = useState("");
+  const [estadoDni, setEstadoDni] = useState<
+    "idle" | "consultando" | "encontrado" | "no-encontrado"
+  >("idle");
+
+  const { mutate: consultarDni, isPending: consultandoDni } = useMutation({
+    mutationFn: (valorDni: string) => api.get<ConsultaDni>("/dni/" + valorDni),
+    onSuccess: (data, valorDni) => {
+      if (dni === valorDni) {
+        setNombre(
+          [data.nombres, data.apellidoPaterno, data.apellidoMaterno]
+            .filter(Boolean)
+            .join(" "),
+        );
+      }
+      setEstadoDni("encontrado");
+    },
+    onError: () => setEstadoDni("no-encontrado"),
+  });
+
+  useEffect(() => {
+    const valorDni = dni.trim();
+    if (!/^\d{8}$/.test(valorDni)) {
+      setEstadoDni("idle");
+      return;
+    }
+
+    setEstadoDni("consultando");
+    const timer = window.setTimeout(() => consultarDni(valorDni), 450);
+    return () => window.clearTimeout(timer);
+  }, [dni, consultarDni]);
 
   const docentes = useQuery({
     queryKey: ["docentes"],
@@ -275,9 +310,25 @@ export function Conductors() {
             <Input
               id="doc-dni"
               value={dni}
-              onChange={(e) => setDni(e.target.value)}
+              onChange={(e) => setDni(e.target.value.replace(/\D/g, ""))}
               inputMode="numeric"
+              maxLength={8}
             />
+            <p className="mt-1 min-h-5 text-xs" aria-live="polite">
+              {consultandoDni && (
+                <span className="text-slate-500">Consultando nombres...</span>
+              )}
+              {!consultandoDni && estadoDni === "encontrado" && (
+                <span className="text-emerald-700">
+                  Datos encontrados y autocompletados.
+                </span>
+              )}
+              {!consultandoDni && estadoDni === "no-encontrado" && (
+                <span className="text-amber-700">
+                  No se encontraron datos. Puedes completarlos manualmente.
+                </span>
+              )}
+            </p>
           </Field>
           <Field label="Nombre completo" htmlFor="doc-nombre">
             <Input

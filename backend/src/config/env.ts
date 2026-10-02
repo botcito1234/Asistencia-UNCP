@@ -94,6 +94,13 @@ const schema = z.object({
   /** Limite de filas por carga masiva de practicantes. */
   BULK_IMPORT_MAX_ROWS: int(500).pipe(z.number().min(1).max(5000)),
 
+  // --- Consulta de identidad peruana -------------------------------------
+  // El token se mantiene solo en el backend y nunca se entrega al panel.
+  DNI_LOOKUP_ENABLED: bool(false),
+  DNI_LOOKUP_API_URL: z.string().url().default("https://dniruc.apisperu.com/api/v1/dni"),
+  DNI_LOOKUP_API_TOKEN: z.string().optional().default(""),
+  DNI_LOOKUP_TIMEOUT_MS: int(8000).pipe(z.number().min(1000).max(30000)),
+
   // --- Google Drive (opcional; sin credenciales el archivado queda en local) -
   GOOGLE_DRIVE_ENABLED: bool(false),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional().default(""),
@@ -239,6 +246,9 @@ function load(): AppConfig {
     }
     if (cfg.GOOGLE_MAPS_ENABLED && !cfg.GOOGLE_MAPS_API_KEY) {
       problems.push("GOOGLE_MAPS_ENABLED=true exige GOOGLE_MAPS_API_KEY.");
+    }
+    if (cfg.DNI_LOOKUP_ENABLED && !cfg.DNI_LOOKUP_API_TOKEN) {
+      problems.push("DNI_LOOKUP_ENABLED=true exige DNI_LOOKUP_API_TOKEN.");
     }
     if (problems.length) {
       throw new Error(
