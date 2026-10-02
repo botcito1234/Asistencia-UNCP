@@ -37,6 +37,7 @@ mobile/.idea/
 *.log
 tmp/
 coverage/
+.codebase-memory/
 .DS_Store
 Thumbs.db
 

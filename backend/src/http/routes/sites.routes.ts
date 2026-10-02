@@ -15,6 +15,7 @@ sitesRouter.use(authenticate());
 /** GET /sedes - todos los administradores ven todas las sedes. */
 sitesRouter.get(
   '/',
+  requireRole('ADMINISTRADOR'),
   asyncHandler(async (req, res) => {
     const includeInactive = req.query.includeInactive === 'true';
     const withCounts = req.query.withCounts !== 'false';
@@ -24,6 +25,7 @@ sitesRouter.get(
 
 sitesRouter.get(
   '/:siteId',
+  requireRole('ADMINISTRADOR'),
   asyncHandler(async (req, res) => {
     res.json(await siteService.getSite(uuid.parse(req.params.siteId)));
   }),

@@ -558,6 +558,7 @@ describe('Autorización por rol', () => {
 
     const rutas = [
       '/api/v1/practicantes',
+      '/api/v1/sedes',
       '/api/v1/seguridad/eventos?from=2026-01-01&to=2026-12-31',
       '/api/v1/parametros',
       '/api/v1/archivado',

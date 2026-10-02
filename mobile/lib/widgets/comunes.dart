@@ -6,6 +6,52 @@ import 'package:flutter/material.dart';
 import '../core/errors.dart';
 import '../core/theme.dart';
 
+/// Lockup de marca del producto. La institucion se identifica con su escudo;
+/// NEXORA identifica la plataforma y mantiene la misma firma visual en todas
+/// las superficies de la aplicacion.
+class MarcaNexora extends StatelessWidget {
+  const MarcaNexora({
+    super.key,
+    this.sobreOscuro = false,
+    this.compacta = false,
+  });
+
+  final bool sobreOscuro;
+  final bool compacta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: compacta ? 26 : 34,
+          height: compacta ? 26 : 34,
+          padding: EdgeInsets.all(compacta ? 3 : 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(compacta ? 7 : 9),
+          ),
+          child: Image.asset(
+            'assets/marca/nexora-isotipo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'NEXORA',
+          style: TextStyle(
+            color: sobreOscuro ? Colors.white : ColoresEstado.marca,
+            fontSize: compacta ? 13 : 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 2.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Tarjeta con titulo opcional.
 class TarjetaSeccion extends StatelessWidget {
   const TarjetaSeccion({
@@ -23,32 +69,58 @@ class TarjetaSeccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: padding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (titulo != null) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      titulo!,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E293B),
+    final reduceMovimiento = MediaQuery.of(context).disableAnimations;
+    final escalaInicial = reduceMovimiento ? 1.0 : 0.985;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: escalaInicial, end: 1),
+      duration: reduceMovimiento
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (context, escala, contenido) {
+        final progreso = reduceMovimiento
+            ? 1.0
+            : ((escala - escalaInicial) / (1 - escalaInicial)).clamp(0.0, 1.0);
+        final transform = Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..scaleByDouble(escala, escala, 1.0, 1.0);
+        return Opacity(
+          opacity: progreso,
+          child: Transform(
+            alignment: Alignment.center,
+            transform: transform,
+            child: contenido,
+          ),
+        );
+      },
+      child: Card(
+        child: Padding(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (titulo != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        titulo!,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
                     ),
-                  ),
-                  if (accion != null) accion!,
-                ],
-              ),
-              const SizedBox(height: 12),
+                    if (accion != null) accion!,
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              child,
             ],
-            child,
-          ],
+          ),
         ),
       ),
     );
@@ -74,13 +146,16 @@ class Etiqueta extends StatelessWidget {
       'PRESENTE' => puntualidad == 'TARDANZA' ? 'Tardanza' : 'Presente',
       'AUSENTE' => 'Falta',
       'NO_LABORABLE' => 'Sin jornada',
+      'SUSPENDIDA' => 'Suspendida',
       _ => 'Programado',
     };
     final icono = switch (estado) {
-      'PRESENTE' => puntualidad == 'TARDANZA'
-          ? Icons.schedule_rounded
-          : Icons.check_circle_rounded,
+      'PRESENTE' =>
+        puntualidad == 'TARDANZA'
+            ? Icons.schedule_rounded
+            : Icons.check_circle_rounded,
       'AUSENTE' => Icons.cancel_rounded,
+      'SUSPENDIDA' => Icons.pause_circle_outline_rounded,
       _ => Icons.remove_circle_outline_rounded,
     };
     return Etiqueta(texto: texto, color: color, icono: icono);
@@ -88,29 +163,38 @@ class Etiqueta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        // ignore: deprecated_member_use
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icono != null) ...[
-            Icon(icono, size: 14, color: color),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            texto,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    final duracionMovimiento = MediaQuery.of(context).disableAnimations
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    return AnimatedSwitcher(
+      duration: duracionMovimiento,
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: Container(
+        key: ValueKey(texto),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          // ignore: deprecated_member_use
+          color: color.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icono != null) ...[
+              Icon(icono, size: 14, color: color),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              texto,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -135,25 +219,25 @@ class Aviso extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, fondo, icono) = switch (tono) {
       TonoAviso.exito => (
-          ColoresEstado.exito,
-          ColoresEstado.exitoSuave,
-          Icons.check_circle_rounded
-        ),
+        ColoresEstado.exito,
+        ColoresEstado.exitoSuave,
+        Icons.check_circle_rounded,
+      ),
       TonoAviso.aviso => (
-          ColoresEstado.aviso,
-          ColoresEstado.avisoSuave,
-          Icons.warning_amber_rounded
-        ),
+        ColoresEstado.aviso,
+        ColoresEstado.avisoSuave,
+        Icons.warning_amber_rounded,
+      ),
       TonoAviso.peligro => (
-          ColoresEstado.peligro,
-          ColoresEstado.peligroSuave,
-          Icons.error_rounded
-        ),
+        ColoresEstado.peligro,
+        ColoresEstado.peligroSuave,
+        Icons.error_rounded,
+      ),
       TonoAviso.info => (
-          ColoresEstado.info,
-          ColoresEstado.infoSuave,
-          Icons.info_rounded
-        ),
+        ColoresEstado.info,
+        ColoresEstado.infoSuave,
+        Icons.info_rounded,
+      ),
     };
 
     return Container(
@@ -193,10 +277,7 @@ class Aviso extends StatelessWidget {
                     color: Color(0xFF334155),
                   ),
                 ),
-                if (accion != null) ...[
-                  const SizedBox(height: 10),
-                  accion!,
-                ],
+                if (accion != null) ...[const SizedBox(height: 10), accion!],
               ],
             ),
           ),
@@ -225,6 +306,9 @@ class Indicador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final duracionMovimiento = MediaQuery.of(context).disableAnimations
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
@@ -248,13 +332,19 @@ class Indicador extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          Text(
-            valor,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: color,
-              height: 1.1,
+          AnimatedSwitcher(
+            duration: duracionMovimiento,
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: Text(
+              valor,
+              key: ValueKey(valor),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: color,
+                height: 1.1,
+              ),
             ),
           ),
           if (detalle != null)

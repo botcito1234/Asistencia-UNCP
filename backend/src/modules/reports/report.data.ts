@@ -92,6 +92,8 @@ const ATTENDANCE_COLUMNS: ReportColumn[] = [
   { key: 'practicante', header: 'Practicante', width: 32 },
   { key: 'sede', header: 'Sede', width: 24 },
   { key: 'area', header: 'Área / Grupo', width: 18 },
+  { key: 'sesion', header: 'Sesion', width: 24 },
+  { key: 'observacion', header: 'Observacion', width: 36 },
   { key: 'programada', header: 'Entrada programada', width: 12, align: 'center' },
   { key: 'entrada', header: 'Entrada real', width: 12, align: 'center' },
   { key: 'salida', header: 'Salida real', width: 12, align: 'center' },
@@ -103,6 +105,7 @@ const ATTENDANCE_COLUMNS: ReportColumn[] = [
   { key: 'distanciaSalida', header: 'Distancia salida (m)', width: 16, align: 'right' },
   { key: 'pendiente', header: 'Salida pendiente', width: 14, align: 'center' },
   { key: 'regularizado', header: 'Regularizado', width: 12, align: 'center' },
+  { key: 'suspension', header: 'Suspension', width: 28 },
 ];
 
 const INCIDENT_COLUMNS: ReportColumn[] = [
@@ -188,6 +191,7 @@ async function attendanceRows(request: ReportRequest) {
       intern: { select: { dni: true, firstNames: true, lastNames: true, areaGroup: true } },
       site: { select: { name: true, timezone: true } },
       marks: true,
+      suspension: { select: { reason: true } },
     },
   });
 
@@ -213,6 +217,8 @@ async function attendanceRows(request: ReportRequest) {
       practicante: d.intern.lastNames + ', ' + d.intern.firstNames,
       sede: d.site.name,
       area: d.intern.areaGroup ?? '',
+      sesion: d.sessionName,
+      observacion: d.observation ?? '',
       programada: minutesToHHmm(d.scheduledStartMinute) ?? '',
       entrada: entrada ? formatLocal(entrada.serverTime, tz, 'HH:mm') : '',
       salida: salida ? formatLocal(salida.serverTime, tz, 'HH:mm') : '',
@@ -225,6 +231,7 @@ async function attendanceRows(request: ReportRequest) {
       distanciaSalida: salida ? Number(salida.distanceMeters) : '',
       pendiente: d.pendingExit ? 'SI' : 'NO',
       regularizado: d.regularized ? 'SI' : 'NO',
+      suspension: d.suspension?.reason ?? '',
     } as Record<string, string | number | null>;
   });
 

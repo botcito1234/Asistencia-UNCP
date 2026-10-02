@@ -50,6 +50,15 @@ class InicioPracticanteScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'NEXORA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFBAE6FD),
+                letterSpacing: 1.4,
+              ),
+            ),
             Text(
               usuario?.practicante?.nombres ?? 'Mi asistencia',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -110,8 +119,10 @@ class _Contenido extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fecha = DateFormat("EEEE d 'de' MMMM", 'es_PE')
-        .format(DateTime.parse('${hoy.fechaNegocio}T12:00:00Z'));
+    final fecha = DateFormat(
+      "EEEE d 'de' MMMM",
+      'es_PE',
+    ).format(DateTime.parse('${hoy.fechaNegocio}T12:00:00Z'));
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -128,8 +139,11 @@ class _Contenido extends ConsumerWidget {
         const SizedBox(height: 2),
         Row(
           children: [
-            const Icon(Icons.schedule_rounded,
-                size: 14, color: Color(0xFF94A3B8)),
+            const Icon(
+              Icons.schedule_rounded,
+              size: 14,
+              color: Color(0xFF94A3B8),
+            ),
             const SizedBox(width: 4),
             Text(
               'Hora del servidor: ${hoy.horaLocal}',
@@ -163,10 +177,7 @@ class _Contenido extends ConsumerWidget {
                   valor: hoy.horaSalidaProgramada!,
                 ),
               if (hoy.abreA != null)
-                FilaDato(
-                  etiqueta: 'Puedes marcar desde',
-                  valor: hoy.abreA!,
-                ),
+                FilaDato(etiqueta: 'Puedes marcar desde', valor: hoy.abreA!),
               FilaDato(etiqueta: 'Sede', valor: hoy.sede.nombre),
               FilaDato(
                 etiqueta: 'Radio permitido',
@@ -233,8 +244,10 @@ class _TarjetaEstadoDia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        ColoresEstado.deEstado(hoy.estado, puntualidad: hoy.puntualidad);
+    final color = ColoresEstado.deEstado(
+      hoy.estado,
+      puntualidad: hoy.puntualidad,
+    );
 
     return Card(
       child: Padding(
@@ -272,11 +285,7 @@ class _TarjetaEstadoDia extends StatelessWidget {
                         : ColoresEstado.exito,
                   ),
                 ),
-                Container(
-                  width: 1,
-                  height: 52,
-                  color: const Color(0xFFE2E8F0),
-                ),
+                Container(width: 1, height: 52, color: const Color(0xFFE2E8F0)),
                 Expanded(
                   child: _Marca(
                     etiqueta: 'Salida',
@@ -367,7 +376,11 @@ class _Acciones extends ConsumerWidget {
   const _Acciones({required this.hoy});
   final EstadoHoy hoy;
 
-  Future<void> _marcar(BuildContext context, WidgetRef ref, bool entrada) async {
+  Future<void> _marcar(
+    BuildContext context,
+    WidgetRef ref,
+    bool entrada,
+  ) async {
     final resultado = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => MarcacionFlujoScreen(esEntrada: entrada, estado: hoy),
@@ -547,8 +560,10 @@ class _MenuUsuario extends ConsumerWidget {
           value: 'salir',
           child: ListTile(
             leading: Icon(Icons.logout_rounded, color: ColoresEstado.peligro),
-            title: Text('Cerrar sesión',
-                style: TextStyle(color: ColoresEstado.peligro)),
+            title: Text(
+              'Cerrar sesión',
+              style: TextStyle(color: ColoresEstado.peligro),
+            ),
             contentPadding: EdgeInsets.zero,
           ),
         ),

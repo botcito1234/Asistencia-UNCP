@@ -13,7 +13,7 @@ export default defineConfig({
     // aislamiento se consigue limpiando las tablas entre pruebas, no lanzando
     // varias instancias de PostgreSQL.
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
+    maxWorkers: 1,
     fileParallelism: false,
   },
 });

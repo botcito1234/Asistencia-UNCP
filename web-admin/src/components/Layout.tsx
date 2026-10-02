@@ -2,64 +2,79 @@
  * Marco del panel: navegacion lateral, cabecera con campana de notificaciones y
  * estado del canal en tiempo real.
  */
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
-import { useRealtime } from '../lib/realtime';
-import { Badge, Button } from './ui';
-import { desdeAhora } from '../lib/format';
-import type { Notificacion, Pagina } from '../lib/types';
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { useRealtime } from "../lib/realtime";
+import { Badge, Button } from "./ui";
+import { NexoraLockup } from "./Brand";
+import { desdeAhora } from "../lib/format";
+import type { Notificacion, Pagina } from "../lib/types";
 
 const NAVEGACION = [
-  { to: '/', label: 'Tablero', exact: true },
-  { to: '/asistencia', label: 'Asistencia' },
-  { to: '/practicantes', label: 'Practicantes' },
-  { to: '/sedes', label: 'Sedes' },
-  { to: '/seguridad', label: 'Alertas' },
-  { to: '/reportes', label: 'Reportes' },
-  { to: '/archivado', label: 'Archivado' },
-  { to: '/auditoria', label: 'Auditoría' },
-  { to: '/parametros', label: 'Parámetros' },
+  { to: "/", label: "Tablero", exact: true },
+  { to: "/asistencia", label: "Asistencia" },
+  { to: "/practicantes", label: "Practicantes" },
+  { to: "/cargas-masivas", label: "Cargas masivas" },
+  { to: "/docentes", label: "Docentes conductores" },
+  { to: "/sedes", label: "Sedes" },
+  { to: "/seguridad", label: "Alertas" },
+  { to: "/reportes", label: "Reportes" },
+  { to: "/archivado", label: "Archivado" },
+  { to: "/auditoria", label: "Auditoría" },
+  { to: "/parametros", label: "Parámetros" },
+  { to: "/suspensiones", label: "Suspensiones" },
+  { to: "/seguimiento-docente", label: "Seguimiento docente" },
 ];
 
 export function Layout() {
   const { user, salir } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [menuMovil, setMenuMovil] = useState(false);
 
   const notificaciones = useQuery({
-    queryKey: ['notificaciones'],
-    queryFn: () => api.get<Pagina<Notificacion> & { unread: number }>('/notificaciones', { pageSize: 30 }),
+    queryKey: ["notificaciones"],
+    queryFn: () =>
+      api.get<Pagina<Notificacion> & { unread: number }>("/notificaciones", {
+        pageSize: 30,
+      }),
     refetchInterval: 120_000,
   });
 
   const { conectado } = useRealtime((evento) => {
     // Cualquier novedad invalida lo que este en pantalla; TanStack Query se
     // encarga de refrescar solo lo visible.
-    if (evento === 'notificacion') void queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
-    void queryClient.invalidateQueries({ queryKey: ['tablero'] });
-    void queryClient.invalidateQueries({ queryKey: ['asistencia'] });
-    if (evento === 'evento-seguridad') void queryClient.invalidateQueries({ queryKey: ['seguridad'] });
+    if (evento === "notificacion")
+      void queryClient.invalidateQueries({ queryKey: ["notificaciones"] });
+    void queryClient.invalidateQueries({ queryKey: ["tablero"] });
+    void queryClient.invalidateQueries({ queryKey: ["asistencia"] });
+    if (evento === "evento-seguridad")
+      void queryClient.invalidateQueries({ queryKey: ["seguridad"] });
   }, true);
 
   const marcarTodas = useMutation({
-    mutationFn: () => api.post('/notificaciones/leer-todas'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notificaciones'] }),
+    mutationFn: () => api.post("/notificaciones/leer-todas"),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["notificaciones"] }),
   });
 
   const sinLeer = notificaciones.data?.unread ?? 0;
 
   useEffect(() => {
-    document.title = sinLeer > 0 ? '(' + sinLeer + ') Control de Asistencia' : 'Control de Asistencia';
+    document.title =
+      sinLeer > 0
+        ? "(" + sinLeer + ") NEXORA · Control de Asistencia"
+        : "NEXORA · Control de Asistencia";
   }, [sinLeer]);
 
   const cerrarSesion = async () => {
     await salir();
-    navigate('/login', { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -69,14 +84,16 @@ export function Layout() {
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-4 px-4">
           <button
             type="button"
-            className="rounded p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+            className="nexora-interactive rounded p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={() => setMenuMovil((v) => !v)}
-            aria-label="Abrir menú"
+            aria-expanded={menuMovil}
+            aria-controls="navegacion-principal"
+            aria-label={menuMovil ? "Cerrar menú" : "Abrir menú"}
           >
             ☰
           </button>
 
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-3">
             <img
               src="/marca/uncp-escudo.png"
               alt="Universidad Nacional del Centro del Perú"
@@ -84,40 +101,69 @@ export function Layout() {
               width={37}
               height={32}
             />
-            <span className="hidden min-w-0 flex-col leading-tight sm:flex">
-              <span className="truncate text-sm font-semibold text-slate-800">Control de Asistencia</span>
-              <span className="truncate text-[11px] text-slate-500">Universidad Nacional del Centro del Perú</span>
-            </span>
+            <div className="hidden min-w-0 items-center gap-3 sm:flex">
+              <NexoraLockup compact />
+              <span className="h-7 w-px bg-slate-200" aria-hidden="true" />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate text-sm font-semibold text-slate-800">
+                  Control de Asistencia
+                </span>
+                <span className="truncate text-[11px] text-slate-500">
+                  Universidad Nacional del Centro del Perú
+                </span>
+              </span>
+            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-3">
             <span
-              title={conectado ? 'Recibiendo novedades en tiempo real' : 'Sin conexión en tiempo real; se refresca cada 2 minutos'}
+              aria-live="polite"
+              title={
+                conectado
+                  ? "Recibiendo novedades en tiempo real"
+                  : "Sin conexión en tiempo real; se refresca cada 2 minutos"
+              }
               className="hidden items-center gap-1.5 text-xs text-slate-500 sm:flex"
             >
-              <span className={'h-2 w-2 rounded-full ' + (conectado ? 'bg-emerald-500' : 'bg-slate-300')} />
-              {conectado ? 'En vivo' : 'Sin conexión en vivo'}
+              <span
+                className={
+                  "h-2 w-2 rounded-full " +
+                  (conectado ? "nexora-live-pulse " : "") +
+                  (conectado ? "bg-emerald-500" : "bg-slate-300")
+                }
+              />
+              {conectado ? "En vivo" : "Sin conexión en vivo"}
             </span>
 
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setPanelAbierto((v) => !v)}
-                className="relative rounded p-2 text-slate-500 hover:bg-slate-100"
-                aria-label={'Notificaciones' + (sinLeer > 0 ? ' (' + sinLeer + ' sin leer)' : '')}
+                className="nexora-interactive relative rounded p-2 text-slate-500 hover:bg-slate-100"
+                aria-expanded={panelAbierto}
+                aria-controls="panel-notificaciones"
+                aria-label={
+                  "Notificaciones" +
+                  (sinLeer > 0 ? " (" + sinLeer + " sin leer)" : "")
+                }
               >
                 🔔
                 {sinLeer > 0 && (
                   <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
-                    {sinLeer > 99 ? '99+' : sinLeer}
+                    {sinLeer > 99 ? "99+" : sinLeer}
                   </span>
                 )}
               </button>
 
               {panelAbierto && (
-                <div className="absolute right-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div
+                  id="panel-notificaciones"
+                  className="nexora-dialog-in absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white shadow-xl"
+                >
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-slate-800">Notificaciones</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Notificaciones
+                    </h3>
                     {sinLeer > 0 && (
                       <button
                         type="button"
@@ -130,18 +176,36 @@ export function Layout() {
                   </div>
                   <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
                     {(notificaciones.data?.items ?? []).map((n) => (
-                      <li key={n.id} className={'px-4 py-3 ' + (n.readAt ? 'opacity-60' : 'bg-marca-50/40')}>
+                      <li
+                        key={n.id}
+                        className={
+                          "px-4 py-3 " +
+                          (n.readAt ? "opacity-60" : "bg-marca-50/40")
+                        }
+                      >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-800">{n.title}</p>
-                          {n.severity === 'CRITICO' && <Badge tono="peligro">Crítico</Badge>}
-                          {n.severity === 'ADVERTENCIA' && <Badge tono="aviso">Aviso</Badge>}
+                          <p className="text-sm font-medium text-slate-800">
+                            {n.title}
+                          </p>
+                          {n.severity === "CRITICO" && (
+                            <Badge tono="peligro">Crítico</Badge>
+                          )}
+                          {n.severity === "ADVERTENCIA" && (
+                            <Badge tono="aviso">Aviso</Badge>
+                          )}
                         </div>
-                        <p className="mt-0.5 text-sm text-slate-600">{n.body}</p>
-                        <p className="mt-1 text-xs text-slate-400">{desdeAhora(n.createdAt)}</p>
+                        <p className="mt-0.5 text-sm text-slate-600">
+                          {n.body}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {desdeAhora(n.createdAt)}
+                        </p>
                       </li>
                     ))}
                     {(notificaciones.data?.items.length ?? 0) === 0 && (
-                      <li className="px-4 py-8 text-center text-sm text-slate-500">Sin notificaciones.</li>
+                      <li className="px-4 py-8 text-center text-sm text-slate-500">
+                        Sin notificaciones.
+                      </li>
                     )}
                   </ul>
                 </div>
@@ -149,8 +213,12 @@ export function Layout() {
             </div>
 
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight text-slate-800">{user?.displayName}</p>
-              <p className="text-xs leading-tight text-slate-500">DNI {user?.dni}</p>
+              <p className="text-sm font-medium leading-tight text-slate-800">
+                {user?.displayName}
+              </p>
+              <p className="text-xs leading-tight text-slate-500">
+                DNI {user?.dni}
+              </p>
             </div>
 
             <Button variante="secundario" onClick={() => void cerrarSesion()}>
@@ -163,9 +231,13 @@ export function Layout() {
       <div className="mx-auto flex max-w-[1600px]">
         {/* Navegacion lateral */}
         <nav
+          id="navegacion-principal"
+          aria-label="Navegación principal"
           className={
-            'w-56 shrink-0 border-r border-slate-200 bg-white p-3 lg:block ' +
-            (menuMovil ? 'fixed inset-y-14 left-0 z-20 block overflow-y-auto' : 'hidden')
+            "w-56 shrink-0 border-r border-slate-200 bg-white p-3 lg:block " +
+            (menuMovil
+              ? "fixed inset-y-14 left-0 z-20 block overflow-y-auto"
+              : "hidden")
           }
         >
           <ul className="space-y-1">
@@ -176,8 +248,10 @@ export function Layout() {
                   end={item.exact}
                   onClick={() => setMenuMovil(false)}
                   className={({ isActive }) =>
-                    'block rounded-lg px-3 py-2 text-sm font-medium transition ' +
-                    (isActive ? 'bg-marca-700 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+                    "nexora-interactive block rounded-lg px-3 py-2 text-sm font-medium " +
+                    (isActive
+                      ? "bg-marca-700 text-white"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")
                   }
                 >
                   {item.label}
@@ -187,8 +261,22 @@ export function Layout() {
           </ul>
         </nav>
 
-        <main className="min-w-0 flex-1 p-4 lg:p-6" onClick={() => setPanelAbierto(false)}>
-          <Outlet />
+        {menuMovil && (
+          <button
+            type="button"
+            className="fixed inset-x-0 bottom-0 top-14 z-10 bg-slate-900/20 lg:hidden"
+            onClick={() => setMenuMovil(false)}
+            aria-label="Cerrar menú"
+          />
+        )}
+
+        <main
+          className="min-w-0 flex-1 p-4 lg:p-6"
+          onClick={() => setPanelAbierto(false)}
+        >
+          <div key={location.pathname} className="nexora-page-in">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

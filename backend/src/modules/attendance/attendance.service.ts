@@ -40,6 +40,7 @@ import { notify } from '../notifications/notification.service.js';
 import { broadcast } from '../notifications/realtime.js';
 import { recordAudit, type AuditContext } from '../audit/audit.service.js';
 import { evidenceStorage } from '../../infra/storage/evidence-storage.js';
+import { findEffectiveSuspension } from '../suspensions/suspension.service.js';
 
 export interface MarkLocation {
   latitude: number;
@@ -59,6 +60,8 @@ export interface MarkRequest {
   userId: string;
   internId: string;
   type: MarkType;
+  sessionName?: string;
+  observation?: string | null;
   location: MarkLocation;
   /** Reloj del telefono, solo para auditoria y deteccion de desfase. */
   deviceTime?: Date | null;
@@ -113,6 +116,17 @@ export async function registerMark(request: MarkRequest): Promise<MarkResult> {
   const timezone = intern.site.timezone;
   const businessDate = businessDateString(serverTime, timezone);
   const nowMinutes = localMinutesOfDay(serverTime, timezone);
+
+  const suspension = await findEffectiveSuspension(intern.id, intern.siteId, businessDate);
+  if (suspension) {
+    await prisma.attendanceDay.updateMany({
+      where: { internId: intern.id, businessDate: dateOnlyValue(businessDate) },
+      data: { status: 'SUSPENDIDA', pendingExit: false, punctuality: null, lateMinutes: 0, closedAt: new Date(), suspensionId: suspension.id },
+    });
+    throw errors.conflict('CONFLICTO', 'La jornada de hoy está suspendida y no admite marcaciones.', {
+      suspensionId: suspension.id,
+    });
+  }
 
   // --- 3. Dispositivo vinculado --------------------------------------------
   let deviceBindingId: string;
@@ -352,6 +366,8 @@ export async function registerMark(request: MarkRequest): Promise<MarkResult> {
         where: { uq_attendance_day_intern_date: { internId: intern.id, businessDate: dateOnlyValue(businessDate) } },
         create: {
           ...dayData,
+          sessionName: request.sessionName || 'Jornada',
+          observation: request.observation ?? null,
           status: request.type === 'ENTRADA' ? 'PRESENTE' : 'PRESENTE',
           punctuality,
           lateMinutes,
@@ -359,8 +375,8 @@ export async function registerMark(request: MarkRequest): Promise<MarkResult> {
         },
         update:
           request.type === 'ENTRADA'
-            ? { status: 'PRESENTE', punctuality, lateMinutes, pendingExit: true }
-            : { pendingExit: false },
+            ? { status: 'PRESENTE', punctuality, lateMinutes, pendingExit: true, sessionName: request.sessionName || 'Jornada', observation: request.observation ?? undefined }
+            : { pendingExit: false, observation: request.observation ?? undefined },
       });
 
       const mark = await tx.attendanceMark.create({

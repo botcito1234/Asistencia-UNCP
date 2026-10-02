@@ -10,10 +10,8 @@
  * sistema ante subidas correctas, corruptas y caidas, no la biblioteca de
  * Google.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import type { Express } from 'express';
-import { createApp } from '../app.js';
 import { prisma } from '../infra/db/prisma.js';
 import { evidenceStorage } from '../infra/storage/evidence-storage.js';
 import { resetDatabase, makeJpeg } from './helpers.js';
@@ -56,12 +54,6 @@ vi.mock('../config/env.js', async (original) => {
 const { subirEvidenciasPendientes, liberarCopiasLocales, leerEvidencia, verificarEvidenciaRemota } = await import(
   '../modules/evidence/evidence-remote.service.js'
 );
-
-let app: Express;
-
-beforeAll(() => {
-  app = createApp();
-});
 
 afterAll(async () => {
   await prisma.$disconnect();

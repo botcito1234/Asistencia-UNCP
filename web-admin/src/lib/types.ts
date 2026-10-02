@@ -1,9 +1,10 @@
 /** Contratos de datos que devuelve la API. */
 
-export type Rol = 'ADMINISTRADOR' | 'PRACTICANTE';
-export type EstadoJornada = 'PROGRAMADO' | 'PRESENTE' | 'AUSENTE' | 'NO_LABORABLE';
-export type Puntualidad = 'PUNTUAL' | 'TARDANZA';
-export type Severidad = 'INFO' | 'ADVERTENCIA' | 'CRITICO';
+export type Rol = "ADMINISTRADOR" | "PRACTICANTE" | "DOCENTE_CONDUCTOR";
+export type EstadoJornada =
+  "PROGRAMADO" | "PRESENTE" | "AUSENTE" | "NO_LABORABLE" | "SUSPENDIDA";
+export type Puntualidad = "PUNTUAL" | "TARDANZA";
+export type Severidad = "INFO" | "ADVERTENCIA" | "CRITICO";
 
 export interface Usuario {
   id: string;
@@ -49,12 +50,13 @@ export interface TableroSede {
   todaviaDentro: number;
   salidasPendientes: number;
   sinJornada: number;
+  suspendidas: number;
   alertas: number;
 }
 
 export interface Tablero {
   date: string;
-  totals: Omit<TableroSede, 'siteId' | 'siteCode' | 'siteName'>;
+  totals: Omit<TableroSede, "siteId" | "siteCode" | "siteName">;
   sites: TableroSede[];
 }
 
@@ -90,11 +92,28 @@ export interface Jornada {
   pendingExit: boolean;
   regularized: boolean;
   archived: boolean;
+  sessionName?: string;
+  observation?: string | null;
+  suspension?: { id: string; reason: string } | null;
   checkIn: Marcacion | null;
   checkOut: Marcacion | null;
   workedMinutes: number | null;
   regularizations: Regularizacion[];
-  siteGeo?: { latitude: number; longitude: number; radiusMeters: number } | null;
+  siteGeo?: {
+    latitude: number;
+    longitude: number;
+    radiusMeters: number;
+  } | null;
+}
+
+export interface RutaMapa {
+  provider: "google-routes";
+  mode: "driving" | "walking" | "bicycling" | "two_wheeler";
+  origin: { latitude: number; longitude: number };
+  destination: { latitude: number; longitude: number };
+  distanceMeters: number;
+  durationSeconds: number;
+  encodedPolyline: string | null;
 }
 
 export interface Regularizacion {
@@ -123,6 +142,50 @@ export interface Practicante {
   deviceBoundAt: string | null;
 }
 
+export interface CargaMasivaError {
+  rowNumber: number;
+  field: string;
+  message: string;
+}
+
+export interface CargaMasivaHorario {
+  weekday: number;
+  startTime: string;
+  endTime: string | null;
+}
+
+export interface CargaMasivaFila {
+  rowNumber: number;
+  dni: string;
+  firstNames: string;
+  lastNames: string;
+  siteCode: string;
+  siteName: string;
+  siteId: string;
+  siteTimezone: string;
+  areaGroup: string | null;
+  phone: string | null;
+  email: string | null;
+  schedule: CargaMasivaHorario[];
+}
+
+export interface CargaMasivaPreview {
+  rows: CargaMasivaFila[];
+  errors: CargaMasivaError[];
+  summary: { totalRows: number; validRows: number; errorRows: number };
+}
+
+export interface CargaMasivaResultado {
+  batchId: string;
+  importedCount: number;
+  credentials: Array<{
+    dni: string;
+    fullName: string;
+    siteCode: string;
+    temporaryPassword: string;
+  }>;
+}
+
 export interface PracticanteDetalle {
   id: string;
   userId: string;
@@ -138,7 +201,11 @@ export interface PracticanteDetalle {
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   lockedUntil: string | null;
-  consent: { accepted: boolean; acceptedAt: string | null; policyVersion: string | null };
+  consent: {
+    accepted: boolean;
+    acceptedAt: string | null;
+    policyVersion: string | null;
+  };
   site: Sede;
   device: {
     id: string;
@@ -150,6 +217,24 @@ export interface PracticanteDetalle {
     lastSeenAt: string;
   } | null;
   schedule: FranjaHorario[];
+}
+
+export interface DocenteConductor {
+  id: string;
+  active: boolean;
+  user: {
+    id: string;
+    dni: string;
+    displayName: string;
+    email: string | null;
+    status: string;
+    mustChangePassword: boolean;
+  };
+  assignments: {
+    id: string;
+    revokedAt: string | null;
+    intern: { id: string; dni: string; firstNames: string; lastNames: string };
+  }[];
 }
 
 export interface FranjaHorario {
@@ -186,7 +271,12 @@ export interface EventoSeguridad {
   createdAt: string;
   acknowledgedAt: string | null;
   acknowledgeNote: string | null;
-  intern: { id: string; dni: string; firstNames: string; lastNames: string } | null;
+  intern: {
+    id: string;
+    dni: string;
+    firstNames: string;
+    lastNames: string;
+  } | null;
   site: { id: string; code: string; name: string } | null;
   acknowledger: { id: string; displayName: string } | null;
 }
@@ -250,7 +340,11 @@ export interface VistaPreviaReporte {
   from: string;
   to: string;
   generatedAt: string;
-  columns: { key: string; header: string; align?: 'left' | 'right' | 'center' }[];
+  columns: {
+    key: string;
+    header: string;
+    align?: "left" | "right" | "center";
+  }[];
   rows: Record<string, string | number | null>[];
   totals: {
     jornadas: number;
@@ -264,7 +358,14 @@ export interface VistaPreviaReporte {
     eventosSeguridad: number;
     porcentajePuntualidad: number | null;
   } | null;
-  bySite: { sede: string; jornadas: number; puntuales: number; tardanzas: number; ausentes: number; pendientes: number }[];
+  bySite: {
+    sede: string;
+    jornadas: number;
+    puntuales: number;
+    tardanzas: number;
+    ausentes: number;
+    pendientes: number;
+  }[];
   filas: number;
   truncado: boolean;
 }

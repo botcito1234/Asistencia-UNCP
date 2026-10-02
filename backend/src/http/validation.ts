@@ -55,6 +55,8 @@ export const pushTokenSchema = z.object({
  * texto y se convierten aqui.
  */
 export const markSchema = z.object({
+  sessionName: z.string().trim().min(1).max(160).default('Jornada'),
+  observation: z.string().trim().max(500).optional().nullable(),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
   accuracyMeters: z.coerce.number().min(0).max(100000),
@@ -104,6 +106,29 @@ export const createSiteSchema = z.object({
 
 export const updateSiteSchema = createSiteSchema.partial();
 
+// --- Mapas ------------------------------------------------------------------
+
+const coordinatePair = z
+  .string()
+  .trim()
+  .regex(/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/, 'Use latitud,longitud.')
+  .transform((value) => {
+    const [latitude, longitude] = value.split(',').map((part) => Number(part.trim()));
+    return { latitude, longitude };
+  })
+  .pipe(
+    z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    }),
+  );
+
+export const mapsRouteQuerySchema = z.object({
+  origin: coordinatePair,
+  destination: coordinatePair,
+  mode: z.enum(['driving', 'walking', 'bicycling', 'two_wheeler']).default('driving'),
+});
+
 // --- Practicantes ------------------------------------------------------------
 
 export const scheduleSlotSchema = z.object({
@@ -139,6 +164,74 @@ export const replaceScheduleSchema = z.object({
   slots: z.array(scheduleSlotSchema).max(7),
 });
 
+// --- Suspensiones y seguimiento docente ------------------------------------
+
+export const createSuspensionSchema = z.object({
+  businessDate: isoDate,
+  scope: z.enum(['SITE', 'INTERN', 'SELECTED_INTERNS']),
+  siteId: uuid.optional().nullable(),
+  internId: uuid.optional().nullable(),
+  internIds: z.array(uuid).max(500).optional(),
+  reason: z.string().trim().min(5).max(300),
+  observation: z.string().trim().max(500).optional().nullable(),
+}).superRefine((value, ctx) => {
+  if (value.scope === 'SITE' && !value.siteId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['siteId'], message: 'Una suspension de sede requiere siteId.' });
+  }
+  if (value.scope === 'INTERN' && !value.internId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internId'], message: 'Una suspension individual requiere internId.' });
+  }
+  if (value.scope === 'SELECTED_INTERNS' && (!value.internIds || value.internIds.length === 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internIds'], message: 'Seleccione al menos un practicante.' });
+  }
+  if (value.scope !== 'SITE' && value.siteId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['siteId'], message: 'siteId solo aplica a suspensiones de sede.' });
+  }
+  if (value.scope !== 'INTERN' && value.internId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internId'], message: 'internId solo aplica a suspensiones individuales.' });
+  }
+  if (value.scope !== 'SELECTED_INTERNS' && value.internIds && value.internIds.length > 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internIds'], message: 'internIds solo aplica a suspensiones seleccionadas.' });
+  }
+  if (value.internIds && new Set(value.internIds).size !== value.internIds.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internIds'], message: 'No repita practicantes en la seleccion.' });
+  }
+});
+
+export const teacherReportSchema = z.object({
+  internId: uuid,
+  category: z.enum([
+    'DOMINIO_DISCIPLINAR',
+    'PLANIFICACION',
+    'MANEJO_DE_AULA',
+    'METODOLOGIA',
+    'PUNTUALIDAD',
+    'RESPONSABILIDAD',
+    'COMUNICACION',
+    'OTROS',
+  ]),
+  nature: z.enum(['POSITIVA', 'OBSERVACION_DE_MEJORA', 'INCIDENCIA']),
+  importance: z.enum(['BAJO', 'MEDIO', 'ALTO']),
+  detail: z.string().trim().min(10).max(2000),
+  recommendation: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const createConductorSchema = z.object({
+  dni,
+  displayName: z.string().trim().min(2).max(160),
+  email: z.string().email().max(160).optional().nullable().or(z.literal('')),
+  phone: z.string().max(30).optional().nullable(),
+  password: z.string().min(8).max(200).optional().nullable(),
+});
+
+export const assignConductorSchema = z.object({
+  internIds: z.array(uuid).max(500),
+}).superRefine((value, ctx) => {
+  if (new Set(value.internIds).size !== value.internIds.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['internIds'], message: 'No repita practicantes en la asignacion.' });
+  }
+});
+
 // --- Dispositivos ------------------------------------------------------------
 
 export const revokeDeviceSchema = z.object({
@@ -164,7 +257,7 @@ export const attendanceQuerySchema = pagination.extend({
   to: isoDate,
   internId: uuid.optional(),
   siteId: uuid.optional(),
-  status: z.enum(['PROGRAMADO', 'PRESENTE', 'AUSENTE', 'NO_LABORABLE']).optional(),
+  status: z.enum(['PROGRAMADO', 'PRESENTE', 'AUSENTE', 'NO_LABORABLE', 'SUSPENDIDA']).optional(),
   punctuality: z.enum(['PUNTUAL', 'TARDANZA']).optional(),
   pendingExitOnly: z.coerce.boolean().optional(),
 });

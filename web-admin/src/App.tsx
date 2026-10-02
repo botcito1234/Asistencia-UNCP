@@ -1,21 +1,25 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import type { ReactElement } from 'react';
-import { useAuth } from './lib/auth';
-import { Layout } from './components/Layout';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import { Attendance } from './pages/Attendance';
-import { AttendanceDetail } from './pages/AttendanceDetail';
-import { Interns } from './pages/Interns';
-import { InternDetail } from './pages/InternDetail';
-import { Sites } from './pages/Sites';
-import { SiteBoard } from './pages/SiteBoard';
-import { Security } from './pages/Security';
-import { Reports } from './pages/Reports';
-import { Archive } from './pages/Archive';
-import { Audit } from './pages/Audit';
-import { Settings } from './pages/Settings';
-import { CambiarPasswordObligatorio } from './pages/CambiarPasswordObligatorio';
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import type { ReactElement } from "react";
+import { useAuth } from "./lib/auth";
+import { Layout } from "./components/Layout";
+import { Login } from "./pages/Login";
+import { Dashboard } from "./pages/Dashboard";
+import { Attendance } from "./pages/Attendance";
+import { AttendanceDetail } from "./pages/AttendanceDetail";
+import { Interns } from "./pages/Interns";
+import { InternDetail } from "./pages/InternDetail";
+import { Conductors } from "./pages/Conductors";
+import { Sites } from "./pages/Sites";
+import { SiteBoard } from "./pages/SiteBoard";
+import { Security } from "./pages/Security";
+import { Reports } from "./pages/Reports";
+import { Archive } from "./pages/Archive";
+import { Audit } from "./pages/Audit";
+import { Settings } from "./pages/Settings";
+import { CambiarPasswordObligatorio } from "./pages/CambiarPasswordObligatorio";
+import { Suspensions } from "./pages/Suspensions";
+import { TeacherReports } from "./pages/TeacherReports";
+import { BulkUploads } from "./pages/BulkUploads";
 
 /** Denegar por defecto: ninguna ruta del panel es accesible sin sesion. */
 function Protegida({ children }: { children: ReactElement }) {
@@ -32,14 +36,16 @@ function Protegida({ children }: { children: ReactElement }) {
 
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
 
-  if (user.role !== 'ADMINISTRADOR') {
+  if (user.role !== "ADMINISTRADOR") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <div className="max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">Acceso no permitido</h1>
+          <h1 className="text-lg font-semibold text-slate-900">
+            Acceso no permitido
+          </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Este panel es exclusivo para administradores. Los practicantes registran su asistencia desde la aplicación
-            móvil.
+            Este panel es exclusivo para administradores. Los practicantes
+            registran su asistencia desde la aplicación móvil.
           </p>
         </div>
       </div>
@@ -66,9 +72,14 @@ export function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/asistencia" element={<Attendance />} />
-        <Route path="/asistencia/:attendanceDayId" element={<AttendanceDetail />} />
+        <Route
+          path="/asistencia/:attendanceDayId"
+          element={<AttendanceDetail />}
+        />
         <Route path="/practicantes" element={<Interns />} />
+        <Route path="/cargas-masivas" element={<BulkUploads />} />
         <Route path="/practicantes/:internId" element={<InternDetail />} />
+        <Route path="/docentes" element={<Conductors />} />
         <Route path="/sedes" element={<Sites />} />
         <Route path="/sedes/:siteId" element={<SiteBoard />} />
         <Route path="/seguridad" element={<Security />} />
@@ -76,6 +87,8 @@ export function App() {
         <Route path="/archivado" element={<Archive />} />
         <Route path="/auditoria" element={<Audit />} />
         <Route path="/parametros" element={<Settings />} />
+        <Route path="/suspensiones" element={<Suspensions />} />
+        <Route path="/seguimiento-docente" element={<TeacherReports />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

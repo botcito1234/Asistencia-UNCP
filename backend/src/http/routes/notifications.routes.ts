@@ -76,13 +76,17 @@ notificationsRouter.get(
     // Misma regla que el resto de rutas: sin contrasena definitiva no hay canal.
     const usuario = await prisma.userAccount.findUnique({
       where: { id: claims.sub },
-      select: { status: true, mustChangePassword: true },
+      select: { status: true, role: true, mustChangePassword: true },
     });
     if (!usuario || usuario.status !== 'ACTIVO') {
       throw errors.unauthorized('CUENTA_INACTIVA', 'La cuenta no está activa.');
     }
     if (usuario.mustChangePassword) {
       throw new AppError('CAMBIO_PASSWORD_REQUERIDO', 'Debe cambiar su contraseña antes de continuar.', 403);
+    }
+
+    if (usuario.role !== 'ADMINISTRADOR' || claims.role !== 'ADMINISTRADOR') {
+      throw errors.forbidden('El canal en tiempo real está reservado para administradores.');
     }
 
     res.writeHead(200, {
@@ -95,7 +99,7 @@ notificationsRouter.get(
     res.write('event: ping\ndata: {"ok":true}\n\n');
 
     const subscriberId = randomUUID();
-    addSubscriber(subscriberId, claims.sub, res);
+    addSubscriber(subscriberId, claims.sub, res, 'ADMINISTRADOR');
 
     req.on('close', () => removeSubscriber(subscriberId));
   }),

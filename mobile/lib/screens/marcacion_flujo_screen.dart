@@ -55,6 +55,8 @@ class _MarcacionFlujoScreenState extends ConsumerState<MarcacionFlujoScreen> {
   CameraController? _camara;
   bool _camaraLista = false;
   bool _capturando = false;
+  final TextEditingController _nombreSesionController = TextEditingController(text: 'Jornada');
+  final TextEditingController _observacionController = TextEditingController();
 
   @override
   void initState() {
@@ -67,6 +69,8 @@ class _MarcacionFlujoScreenState extends ConsumerState<MarcacionFlujoScreen> {
   @override
   void dispose() {
     _camara?.dispose();
+    _nombreSesionController.dispose();
+    _observacionController.dispose();
     super.dispose();
   }
 
@@ -260,6 +264,11 @@ class _MarcacionFlujoScreenState extends ConsumerState<MarcacionFlujoScreen> {
     final practicanteId = ref.read(usuarioProvider)?.practicante?.id;
 
     if (ubicacion == null || evidencia == null || practicanteId == null) return;
+    final nombreSesion = _nombreSesionController.text.trim();
+    if (nombreSesion.isEmpty) {
+      setState(() => _error = AppException(code: 'VALIDACION', message: 'El nombre de la sesión es obligatorio.'));
+      return;
+    }
 
     setState(() {
       _paso = PasoMarcacion.enviando;
@@ -274,6 +283,8 @@ class _MarcacionFlujoScreenState extends ConsumerState<MarcacionFlujoScreen> {
             evidencia: evidencia,
             fechaNegocio: widget.estado.fechaNegocio,
             practicanteId: practicanteId,
+            nombreSesion: nombreSesion,
+            observacion: _observacionController.text,
           );
 
       if (!mounted) return;
@@ -374,6 +385,8 @@ class _MarcacionFlujoScreenState extends ConsumerState<MarcacionFlujoScreen> {
           ubicacion: _ubicacion!,
           distancia: _distancia,
           esEntrada: widget.esEntrada,
+          nombreSesionController: _nombreSesionController,
+          observacionController: _observacionController,
           error: _error,
           onRepetir: _repetirFoto,
           onConfirmar: _enviar,
@@ -765,6 +778,8 @@ class _PasoRevisionFoto extends StatelessWidget {
     required this.ubicacion,
     required this.distancia,
     required this.esEntrada,
+    required this.nombreSesionController,
+    required this.observacionController,
     required this.onRepetir,
     required this.onConfirmar,
     this.error,
@@ -774,6 +789,8 @@ class _PasoRevisionFoto extends StatelessWidget {
   final LecturaUbicacion ubicacion;
   final double distancia;
   final bool esEntrada;
+  final TextEditingController nombreSesionController;
+  final TextEditingController observacionController;
   final AppException? error;
   final VoidCallback onRepetir;
   final VoidCallback onConfirmar;
@@ -806,6 +823,25 @@ class _PasoRevisionFoto extends StatelessWidget {
               const Text(
                 'Debe verse tu rostro con claridad. Si no es así, repitela.',
                 style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: nombreSesionController,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre de la sesión *',
+                  hintText: 'Ej. Observación de aula',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: observacionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Observación (opcional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 14),
               ClipRRect(

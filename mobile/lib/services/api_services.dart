@@ -120,6 +120,8 @@ class AttendanceService {
     required EvidenciaCapturada evidencia,
     required String fechaNegocio,
     required String practicanteId,
+    required String nombreSesion,
+    String? observacion,
   }) async {
     final ruta = esEntrada ? '/asistencia/entrada' : '/asistencia/salida';
 
@@ -132,6 +134,8 @@ class AttendanceService {
     final respuesta = await _api.postMultipart(
       ruta,
       campos: {
+        'sessionName': nombreSesion,
+        if (observacion != null && observacion.trim().isNotEmpty) 'observation': observacion.trim(),
         'latitude': ubicacion.latitud,
         'longitude': ubicacion.longitud,
         'accuracyMeters': ubicacion.precisionMetros,
@@ -236,6 +240,40 @@ class NotificationService {
   Future<void> registrarTokenPush(String token) async {
     await _api.post('/auth/push-token',
         cuerpo: {'token': token, 'platform': 'android'});
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Docente conductor
+// ---------------------------------------------------------------------------
+
+class TeacherService {
+  TeacherService(this._api);
+  final ApiClient _api;
+
+  Future<List<Map<String, dynamic>>> misPracticantes() async {
+    final respuesta = await _api.get('/operacion/docentes/mis-practicantes');
+    return (respuesta['items'] as List<dynamic>? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> crearReporte({
+    required String internId,
+    required String category,
+    required String nature,
+    required String importance,
+    required String detail,
+    String? recommendation,
+  }) async {
+    await _api.post('/operacion/seguimiento-docente', cuerpo: {
+      'internId': internId,
+      'category': category,
+      'nature': nature,
+      'importance': importance,
+      'detail': detail,
+      if (recommendation != null && recommendation.trim().isNotEmpty) 'recommendation': recommendation.trim(),
+    });
   }
 }
 

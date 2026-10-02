@@ -20,6 +20,7 @@ import {
 import { getEffectiveSchedule } from '../schedules/schedule.service.js';
 import { getSettings } from '../settings/settings.service.js';
 import { evaluateCheckInWindow } from '../../domain/attendance-rules.js';
+import { findEffectiveSuspension } from '../suspensions/suspension.service.js';
 
 // ---------------------------------------------------------------------------
 // Estado del dia para la aplicacion del practicante
@@ -69,12 +70,13 @@ export async function getTodayStatus(internId: string): Promise<TodayStatus> {
   const businessDate = businessDateString(serverTime, timezone);
   const nowMinutes = localMinutesOfDay(serverTime, timezone);
 
-  const [schedule, day] = await Promise.all([
+  const [schedule, day, suspension] = await Promise.all([
     getEffectiveSchedule(internId, businessDate),
     prisma.attendanceDay.findUnique({
       where: { uq_attendance_day_intern_date: { internId, businessDate: dateOnlyValue(businessDate) } },
       include: { marks: { orderBy: { serverTime: 'asc' } } },
     }),
+    findEffectiveSuspension(internId, intern.siteId, businessDate),
   ]);
 
   const checkInMark = day?.marks.find((m) => m.type === 'ENTRADA') ?? null;
@@ -85,7 +87,9 @@ export async function getTodayStatus(internId: string): Promise<TodayStatus> {
   let checkInOpensAt: string | null = null;
   let reason: string | null = null;
 
-  if (!schedule) {
+  if (suspension) {
+    reason = 'La jornada de hoy está suspendida.';
+  } else if (!schedule) {
     reason = 'Hoy no tiene una jornada programada.';
   } else if (checkInMark) {
     checkInOpensAt = minutesToHHmm(schedule.startMinute - settings.checkinEarlyWindowMinutes);
@@ -133,11 +137,11 @@ export async function getTodayStatus(internId: string): Promise<TodayStatus> {
     },
     checkIn: checkInMark ? toMarkSummary(checkInMark, timezone) : null,
     checkOut: checkOutMark ? toMarkSummary(checkOutMark, timezone) : null,
-    status: day?.status ?? (schedule ? 'PROGRAMADO' : 'NO_LABORABLE'),
+    status: day?.status ?? (suspension ? 'SUSPENDIDA' : schedule ? 'PROGRAMADO' : 'NO_LABORABLE'),
     punctuality: day?.punctuality ?? null,
     lateMinutes: day?.lateMinutes ?? 0,
     pendingExit: day?.pendingExit ?? false,
-    actions: { canCheckIn, canCheckOut, checkInOpensAt, reason },
+    actions: { canCheckIn: suspension ? false : canCheckIn, canCheckOut: suspension ? false : canCheckOut, checkInOpensAt, reason },
     gpsRequirements: {
       maxAccuracyMeters: Math.min(settings.gpsMaxAccuracyMeters, Math.max(10, Math.round(intern.site.radiusMeters * 0.7))),
       maxAgeSeconds: settings.gpsMaxAgeSeconds,
@@ -197,6 +201,7 @@ export async function queryAttendance(q: AttendanceHistoryQuery) {
           orderBy: { createdAt: 'desc' },
           include: { admin: { select: { id: true, displayName: true } } },
         },
+        suspension: { select: { id: true, reason: true } },
       },
     }),
   ]);
@@ -222,6 +227,7 @@ type DayRow = Prisma.AttendanceDayGetPayload<{
     site: { select: { id: true; code: true; name: true; timezone: true } };
     marks: true;
     regularizations: { include: { admin: { select: { id: true; displayName: true } } } };
+    suspension: { select: { id: true; reason: true } };
   };
 }>;
 
@@ -248,6 +254,9 @@ export function serializeDay(day: DayRow) {
     punctuality: day.punctuality,
     lateMinutes: day.lateMinutes,
     pendingExit: day.pendingExit,
+    sessionName: day.sessionName,
+    observation: day.observation,
+    suspension: day.suspension,
     regularized: day.regularized,
     archived: Boolean(day.archivedAt),
     checkIn: checkIn ? toMarkSummary(checkIn, tz) : null,
@@ -274,6 +283,7 @@ export async function getAttendanceDay(attendanceDayId: string) {
       site: { select: { id: true, code: true, name: true, timezone: true } },
       marks: { orderBy: { serverTime: 'asc' } },
       regularizations: { orderBy: { createdAt: 'desc' }, include: { admin: { select: { id: true, displayName: true } } } },
+      suspension: { select: { id: true, reason: true } },
     },
   });
   if (!day) throw errors.notFound('Jornada');
@@ -314,6 +324,7 @@ export interface SiteBoard {
   todaviaDentro: number;
   salidasPendientes: number;
   sinJornada: number;
+  suspendidas: number;
   alertas: number;
 }
 
@@ -367,6 +378,7 @@ export async function getDashboard(q: DashboardQuery) {
     const tardanzas = siteDays.filter((d) => d.punctuality === 'TARDANZA').length;
     const ausentes = siteDays.filter((d) => d.status === 'AUSENTE').length;
     const sinJornada = siteDays.filter((d) => d.status === 'NO_LABORABLE').length;
+    const suspendidas = siteDays.filter((d) => d.status === 'SUSPENDIDA').length;
     const salidas = siteDays.filter((d) => d.marks.some((m) => m.type === 'SALIDA')).length;
     const todaviaDentro = siteDays.filter(
       (d) => d.status === 'PRESENTE' && !d.marks.some((m) => m.type === 'SALIDA'),
@@ -386,6 +398,7 @@ export async function getDashboard(q: DashboardQuery) {
       todaviaDentro,
       salidasPendientes,
       sinJornada,
+      suspendidas,
       alertas: alertsBySite.get(site.id) ?? 0,
     };
   });
@@ -401,6 +414,7 @@ export async function getDashboard(q: DashboardQuery) {
       todaviaDentro: acc.todaviaDentro + b.todaviaDentro,
       salidasPendientes: acc.salidasPendientes + b.salidasPendientes,
       sinJornada: acc.sinJornada + b.sinJornada,
+      suspendidas: acc.suspendidas + b.suspendidas,
       alertas: acc.alertas + b.alertas,
     }),
     {
@@ -413,6 +427,7 @@ export async function getDashboard(q: DashboardQuery) {
       todaviaDentro: 0,
       salidasPendientes: 0,
       sinJornada: 0,
+      suspendidas: 0,
       alertas: 0,
     },
   );

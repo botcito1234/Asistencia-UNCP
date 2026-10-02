@@ -12,7 +12,18 @@ const LOCALE = 'es-PE';
 let zonaInstitucion: string | null = null;
 
 export function fijarZonaInstitucion(zona: string | null): void {
-  zonaInstitucion = zona;
+  if (!zona) {
+    zonaInstitucion = null;
+    return;
+  }
+  try {
+    new Intl.DateTimeFormat(LOCALE, { timeZone: zona }).format();
+    zonaInstitucion = zona;
+  } catch {
+    // El servidor puede estar actualizandose o devolver una zona invalida.
+    // Se conserva el comportamiento local sin romper todas las pantallas.
+    zonaInstitucion = null;
+  }
 }
 
 /** Fecha de hoy en la zona de la institucion (o la del navegador, si aun no llego). */
@@ -68,6 +79,7 @@ export function fechaCorta(iso: string | null | undefined): string {
 export function fechaHora(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString(LOCALE, {
+    timeZone: zonaInstitucion ?? undefined,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -78,7 +90,11 @@ export function fechaHora(iso: string | null | undefined): string {
 
 export function hora(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(LOCALE, {
+    timeZone: zonaInstitucion ?? undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export function desdeAhora(iso: string | null | undefined): string {

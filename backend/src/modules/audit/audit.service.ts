@@ -6,40 +6,45 @@
  * un fallo al auditar no debe tumbar la operacion de negocio, pero si debe
  * quedar en el log de errores para ser investigado.
  */
-import type { Prisma, UserRole } from '@prisma/client';
-import { prisma } from '../../infra/db/prisma.js';
-import { logger } from '../../core/logger.js';
+import type { Prisma, UserRole } from "@prisma/client";
+import { prisma } from "../../infra/db/prisma.js";
+import { logger } from "../../core/logger.js";
 
 export type AuditAction =
-  | 'LOGIN_EXITOSO'
-  | 'LOGIN_FALLIDO'
-  | 'LOGOUT'
-  | 'TOKEN_RENOVADO'
-  | 'PASSWORD_CAMBIADA'
-  | 'PASSWORD_RESTABLECIDA'
-  | 'DISPOSITIVO_VINCULADO'
-  | 'DISPOSITIVO_REVOCADO'
-  | 'DISPOSITIVO_CAMBIO_AUTORIZADO'
-  | 'SEDE_CREADA'
-  | 'SEDE_ACTUALIZADA'
-  | 'SEDE_DESACTIVADA'
-  | 'PRACTICANTE_CREADO'
-  | 'PRACTICANTE_ACTUALIZADO'
-  | 'PRACTICANTE_DESACTIVADO'
-  | 'HORARIO_ACTUALIZADO'
-  | 'ENTRADA_REGISTRADA'
-  | 'SALIDA_REGISTRADA'
-  | 'MARCACION_RECHAZADA'
-  | 'REGULARIZACION_APLICADA'
-  | 'EVIDENCIA_CONSULTADA'
-  | 'EVIDENCIA_DESCARGADA'
-  | 'REPORTE_GENERADO'
-  | 'ARCHIVADO_EJECUTADO'
-  | 'ARCHIVADO_LIBERADO'
-  | 'PARAMETROS_ACTUALIZADOS'
-  | 'EVENTO_SEGURIDAD_ATENDIDO'
-  | 'CONSENTIMIENTO_ACEPTADO'
-  | 'JORNADA_CERRADA';
+  | "LOGIN_EXITOSO"
+  | "LOGIN_FALLIDO"
+  | "LOGOUT"
+  | "TOKEN_RENOVADO"
+  | "PASSWORD_CAMBIADA"
+  | "PASSWORD_RESTABLECIDA"
+  | "DISPOSITIVO_VINCULADO"
+  | "DISPOSITIVO_REVOCADO"
+  | "DISPOSITIVO_CAMBIO_AUTORIZADO"
+  | "SEDE_CREADA"
+  | "SEDE_ACTUALIZADA"
+  | "SEDE_DESACTIVADA"
+  | "PRACTICANTE_CREADO"
+  | "PRACTICANTE_ACTUALIZADO"
+  | "PRACTICANTE_DESACTIVADO"
+  | "HORARIO_ACTUALIZADO"
+  | "ENTRADA_REGISTRADA"
+  | "SALIDA_REGISTRADA"
+  | "MARCACION_RECHAZADA"
+  | "REGULARIZACION_APLICADA"
+  | "EVIDENCIA_CONSULTADA"
+  | "EVIDENCIA_DESCARGADA"
+  | "REPORTE_GENERADO"
+  | "ARCHIVADO_EJECUTADO"
+  | "ARCHIVADO_LIBERADO"
+  | "PARAMETROS_ACTUALIZADOS"
+  | "EVENTO_SEGURIDAD_ATENDIDO"
+  | "CONSENTIMIENTO_ACEPTADO"
+  | "JORNADA_CERRADA"
+  | "DOCENTE_CREADO"
+  | "SUSPENSION_CREADA"
+  | "REPORTE_DOCENTE_CREADO"
+  | "CARGA_MASIVA_VALIDADA"
+  | "CARGA_MASIVA_IMPORTADA";
 
 export interface AuditContext {
   actorUserId?: string | null;
@@ -60,36 +65,44 @@ export interface AuditInput extends AuditContext {
 
 /** Campos que jamas deben quedar guardados en la bitacora. */
 const FORBIDDEN_KEYS = new Set([
-  'password',
-  'passwordHash',
-  'currentPassword',
-  'newPassword',
-  'temporaryPassword',
-  'refreshToken',
-  'refreshTokenHash',
-  'accessToken',
-  'token',
-  'privateKey',
+  "password",
+  "passwordHash",
+  "currentPassword",
+  "newPassword",
+  "temporaryPassword",
+  "refreshToken",
+  "refreshTokenHash",
+  "accessToken",
+  "token",
+  "privateKey",
 ]);
 
 function redact(value: unknown, depth = 0): Prisma.InputJsonValue | undefined {
   if (value === undefined || value === null) return undefined;
-  if (depth > 6) return '[PROFUNDIDAD_MAXIMA]';
+  if (depth > 6) return "[PROFUNDIDAD_MAXIMA]";
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'bigint') return value.toString();
-  if (typeof value === 'object') {
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "object") {
     if (Array.isArray(value)) {
-      return value.slice(0, 200).map((v) => redact(v, depth + 1) ?? null) as Prisma.InputJsonValue;
+      return value
+        .slice(0, 200)
+        .map((v) => redact(v, depth + 1) ?? null) as Prisma.InputJsonValue;
     }
     // Decimal de Prisma y similares exponen toString/toNumber.
-    const maybeDecimal = value as { toFixed?: unknown; toNumber?: () => number };
-    if (typeof maybeDecimal.toNumber === 'function' && typeof maybeDecimal.toFixed === 'function') {
+    const maybeDecimal = value as {
+      toFixed?: unknown;
+      toNumber?: () => number;
+    };
+    if (
+      typeof maybeDecimal.toNumber === "function" &&
+      typeof maybeDecimal.toFixed === "function"
+    ) {
       return maybeDecimal.toNumber();
     }
     const out: Record<string, Prisma.InputJsonValue> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (FORBIDDEN_KEYS.has(k)) {
-        out[k] = '[REDACTADO]';
+        out[k] = "[REDACTADO]";
         continue;
       }
       const r = redact(v, depth + 1);
@@ -97,8 +110,9 @@ function redact(value: unknown, depth = 0): Prisma.InputJsonValue | undefined {
     }
     return out;
   }
-  if (typeof value === 'string') return value.length > 4000 ? value.slice(0, 4000) + '...' : value;
-  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === "string")
+    return value.length > 4000 ? value.slice(0, 4000) + "..." : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
   return String(value);
 }
 
@@ -129,7 +143,10 @@ export async function recordAudit(
       },
     });
   } catch (e) {
-    logger.error({ err: e, action: input.action, entityType: input.entityType }, 'Fallo al registrar auditoria.');
+    logger.error(
+      { err: e, action: input.action, entityType: input.entityType },
+      "Fallo al registrar auditoria.",
+    );
   }
 }
 
@@ -163,10 +180,14 @@ export async function queryAudit(q: AuditQuery) {
     prisma.auditLog.count({ where }),
     prisma.auditLog.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { actor: { select: { id: true, dni: true, displayName: true, role: true } } },
+      include: {
+        actor: {
+          select: { id: true, dni: true, displayName: true, role: true },
+        },
+      },
     }),
   ]);
 

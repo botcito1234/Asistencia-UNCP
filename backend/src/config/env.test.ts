@@ -82,6 +82,15 @@ describe('Configuración de producción', () => {
     await expect(cargar({ EVIDENCE_REMOTE_STORAGE: 'true' })).rejects.toThrow(/exige GOOGLE_DRIVE_ENABLED/);
   });
 
+  it('acepta Maps habilitado con clave de servidor', async () => {
+    const modulo = await cargar({ GOOGLE_MAPS_ENABLED: 'true', GOOGLE_MAPS_API_KEY: 'clave-restringida' });
+    expect(modulo.config.GOOGLE_MAPS_ENABLED).toBe(true);
+  });
+
+  it('rechaza Maps habilitado sin clave', async () => {
+    await expect(cargar({ GOOGLE_MAPS_ENABLED: 'true' })).rejects.toThrow(/GOOGLE_MAPS_API_KEY/);
+  });
+
   it('rechaza una URL pública sin https', async () => {
     await expect(cargar({ PUBLIC_BASE_URL: 'http://asistencia.ejemplo.pe' })).rejects.toThrow(/https/);
   });

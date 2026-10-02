@@ -7,7 +7,6 @@ import { logger } from '../../core/logger.js';
  * En desarrollo se reutiliza entre recargas de tsx para no agotar conexiones.
  */
 declare global {
-  // eslint-disable-next-line no-var
   var __asistenciaPrisma: PrismaClient | undefined;
 }
 

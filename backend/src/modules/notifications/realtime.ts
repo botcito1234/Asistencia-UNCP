@@ -18,14 +18,15 @@ export type RealtimeEvent =
 interface Subscriber {
   id: string;
   userId: string;
+  role: 'ADMINISTRADOR';
   res: Response;
 }
 
 const subscribers = new Map<string, Subscriber>();
 let heartbeat: NodeJS.Timeout | null = null;
 
-export function addSubscriber(id: string, userId: string, res: Response): void {
-  subscribers.set(id, { id, userId, res });
+export function addSubscriber(id: string, userId: string, res: Response, role: 'ADMINISTRADOR' = 'ADMINISTRADOR'): void {
+  subscribers.set(id, { id, userId, role, res });
   startHeartbeat();
   logger.debug({ subscriberId: id, userId, total: subscribers.size }, 'Suscriptor SSE conectado.');
 }
@@ -46,7 +47,9 @@ function write(sub: Subscriber, event: RealtimeEvent, payload: unknown): void {
 
 /** Difunde a todos los administradores conectados. */
 export function broadcast(event: RealtimeEvent, payload: unknown): void {
-  for (const sub of subscribers.values()) write(sub, event, payload);
+  for (const sub of subscribers.values()) {
+    if (sub.role === 'ADMINISTRADOR') write(sub, event, payload);
+  }
 }
 
 /** Envia solo a un usuario concreto (todas sus pestanas abiertas). */

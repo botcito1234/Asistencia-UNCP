@@ -30,18 +30,24 @@ void main() {
       for (final codigo in codigos) {
         final mensaje = ErrorCatalog.mensaje(codigo);
         expect(mensaje, isNotEmpty, reason: 'falta mensaje para $codigo');
-        expect(mensaje.length, greaterThan(15),
-            reason: '$codigo tiene un mensaje demasiado escueto');
+        expect(
+          mensaje.length,
+          greaterThan(15),
+          reason: '$codigo tiene un mensaje demasiado escueto',
+        );
       }
     });
 
-    test('el mensaje del servidor tiene prioridad porque trae datos concretos', () {
-      final mensaje = ErrorCatalog.mensaje(
-        'FUERA_DE_GEOCERCA',
-        mensajeServidor: 'Estás a 187 m (máximo 50 m).',
-      );
-      expect(mensaje, contains('187'));
-    });
+    test(
+      'el mensaje del servidor tiene prioridad porque trae datos concretos',
+      () {
+        final mensaje = ErrorCatalog.mensaje(
+          'FUERA_DE_GEOCERCA',
+          mensajeServidor: 'Estás a 187 m (máximo 50 m).',
+        );
+        expect(mensaje, contains('187'));
+      },
+    );
 
     test('un código desconocido no deja al usuario sin explicacion', () {
       expect(ErrorCatalog.mensaje('CODIGO_QUE_NO_EXISTE'), isNotEmpty);
@@ -56,7 +62,10 @@ void main() {
 
     test('los errores de sesión y de dispositivo obligan a reautenticar', () {
       expect(ErrorCatalog.exigeReautenticacion('SESION_REVOCADA'), isTrue);
-      expect(ErrorCatalog.exigeReautenticacion('DISPOSITIVO_NO_AUTORIZADO'), isTrue);
+      expect(
+        ErrorCatalog.exigeReautenticacion('DISPOSITIVO_NO_AUTORIZADO'),
+        isTrue,
+      );
       expect(ErrorCatalog.exigeReautenticacion('GPS_IMPRECISO'), isFalse);
     });
 
@@ -72,6 +81,10 @@ void main() {
       expect(ColoresEstado.deEstado('AUSENTE'), ColoresEstado.peligro);
     });
 
+    test('una jornada suspendida se muestra como información', () {
+      expect(ColoresEstado.deEstado('SUSPENDIDA'), ColoresEstado.info);
+    });
+
     test('una entrada puntual se muestra en verde', () {
       expect(
         ColoresEstado.deEstado('PRESENTE', puntualidad: 'PUNTUAL'),
@@ -80,10 +93,14 @@ void main() {
     });
 
     test('una tardanza se distingue de una entrada puntual', () {
-      final puntual =
-          ColoresEstado.deEstado('PRESENTE', puntualidad: 'PUNTUAL');
-      final tardanza =
-          ColoresEstado.deEstado('PRESENTE', puntualidad: 'TARDANZA');
+      final puntual = ColoresEstado.deEstado(
+        'PRESENTE',
+        puntualidad: 'PUNTUAL',
+      );
+      final tardanza = ColoresEstado.deEstado(
+        'PRESENTE',
+        puntualidad: 'TARDANZA',
+      );
       expect(tardanza, ColoresEstado.aviso);
       expect(tardanza, isNot(puntual));
     });
@@ -102,40 +119,39 @@ void main() {
       String estado = 'PROGRAMADO',
       String? puntualidad,
       Map<String, dynamic>? entrada,
-    }) =>
-        {
-          'businessDate': '2026-09-18',
-          'serverTime': '2026-09-18T13:00:00.000Z',
-          'localTime': '08:00:00',
-          'timezone': 'America/Lima',
-          'site': {
-            'id': 's1',
-            'code': 'SEDE-01',
-            'name': 'Sede Central',
-            'latitude': -12.046374,
-            'longitude': -77.042793,
-            'radiusMeters': 50,
-            'timezone': 'America/Lima',
-          },
-          'schedule': {
-            'startTime': '08:00',
-            'endTime': '17:00',
-            'hasSchedule': true,
-          },
-          'checkIn': entrada,
-          'checkOut': null,
-          'status': estado,
-          'punctuality': puntualidad,
-          'lateMinutes': 0,
-          'pendingExit': false,
-          'actions': {
-            'canCheckIn': puedeEntrar,
-            'canCheckOut': puedeSalir,
-            'checkInOpensAt': '07:45',
-            'reason': null,
-          },
-          'gpsRequirements': {'maxAccuracyMeters': 35, 'maxAgeSeconds': 60},
-        };
+    }) => {
+      'businessDate': '2026-09-18',
+      'serverTime': '2026-09-18T13:00:00.000Z',
+      'localTime': '08:00:00',
+      'timezone': 'America/Lima',
+      'site': {
+        'id': 's1',
+        'code': 'SEDE-01',
+        'name': 'Sede Central',
+        'latitude': -12.046374,
+        'longitude': -77.042793,
+        'radiusMeters': 50,
+        'timezone': 'America/Lima',
+      },
+      'schedule': {
+        'startTime': '08:00',
+        'endTime': '17:00',
+        'hasSchedule': true,
+      },
+      'checkIn': entrada,
+      'checkOut': null,
+      'status': estado,
+      'punctuality': puntualidad,
+      'lateMinutes': 0,
+      'pendingExit': false,
+      'actions': {
+        'canCheckIn': puedeEntrar,
+        'canCheckOut': puedeSalir,
+        'checkInOpensAt': '07:45',
+        'reason': null,
+      },
+      'gpsRequirements': {'maxAccuracyMeters': 35, 'maxAgeSeconds': 60},
+    };
 
     test('interpreta la jornada programada y la ventana de entrada', () {
       final estado = EstadoHoy.desdeJson(respuestaBase());
@@ -150,22 +166,24 @@ void main() {
     });
 
     test('lee la marcación de entrada con su distancia', () {
-      final estado = EstadoHoy.desdeJson(respuestaBase(
-        puedeEntrar: false,
-        puedeSalir: true,
-        estado: 'PRESENTE',
-        puntualidad: 'PUNTUAL',
-        entrada: {
-          'id': 'm1',
-          'time': '2026-09-18T13:00:00.000Z',
-          'localTime': '08:00',
-          'distanceMeters': 12.5,
-          'accuracyMeters': 8.0,
-          'latitude': -12.046374,
-          'longitude': -77.042793,
-          'evidenceId': 'e1',
-        },
-      ));
+      final estado = EstadoHoy.desdeJson(
+        respuestaBase(
+          puedeEntrar: false,
+          puedeSalir: true,
+          estado: 'PRESENTE',
+          puntualidad: 'PUNTUAL',
+          entrada: {
+            'id': 'm1',
+            'time': '2026-09-18T13:00:00.000Z',
+            'localTime': '08:00',
+            'distanceMeters': 12.5,
+            'accuracyMeters': 8.0,
+            'latitude': -12.046374,
+            'longitude': -77.042793,
+            'evidenceId': 'e1',
+          },
+        ),
+      );
 
       expect(estado.entrada, isNotNull);
       expect(estado.entrada!.distanciaMetros, 12.5);
@@ -313,8 +331,10 @@ void main() {
 
       final reconstruido = Usuario.desdeJson(original.aJson());
       expect(reconstruido.dni, original.dni);
-      expect(reconstruido.practicante!.sede.latitud,
-          original.practicante!.sede.latitud);
+      expect(
+        reconstruido.practicante!.sede.latitud,
+        original.practicante!.sede.latitud,
+      );
     });
   });
 
@@ -324,6 +344,15 @@ void main() {
         MaterialApp(home: Scaffold(body: Etiqueta.estado('AUSENTE'))),
       );
       expect(find.text('Falta'), findsOneWidget);
+    });
+
+    testWidgets('la etiqueta de suspensión se lee como "Suspendida"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: Etiqueta.estado('SUSPENDIDA'))),
+      );
+      expect(find.text('Suspendida'), findsOneWidget);
     });
 
     testWidgets('la etiqueta distingue puntual de tardanza', (tester) async {
@@ -343,8 +372,9 @@ void main() {
       expect(find.text('Tardanza'), findsOneWidget);
     });
 
-    testWidgets('el aviso de falta de conexión explica la consecuencia',
-        (tester) async {
+    testWidgets('el aviso de falta de conexión explica la consecuencia', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: BarraSinConexion())),
       );
@@ -352,8 +382,9 @@ void main() {
       expect(find.textContaining('No podrás marcar'), findsOneWidget);
     });
 
-    testWidgets('la vista de error muestra el mensaje y permite reintentar',
-        (tester) async {
+    testWidgets('la vista de error muestra el mensaje y permite reintentar', (
+      tester,
+    ) async {
       var reintentos = 0;
 
       await tester.pumpWidget(
@@ -362,7 +393,8 @@ void main() {
             body: VistaError(
               error: const AppException(
                 code: 'SIN_CONEXION',
-                message: 'Necesitas conexión a Internet para registrar tu asistencia.',
+                message:
+                    'Necesitas conexión a Internet para registrar tu asistencia.',
               ),
               onReintentar: () => reintentos++,
             ),
@@ -375,8 +407,9 @@ void main() {
       expect(reintentos, 1);
     });
 
-    testWidgets('el indicador muestra etiqueta, valor y detalle',
-        (tester) async {
+    testWidgets('el indicador muestra etiqueta, valor y detalle', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(

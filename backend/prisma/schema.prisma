@@ -36,6 +36,7 @@ datasource db {
 enum UserRole {
   ADMINISTRADOR
   PRACTICANTE
+  DOCENTE_CONDUCTOR
 }
 
 enum UserStatus {
@@ -69,6 +70,36 @@ enum AttendanceDayStatus {
   PRESENTE
   AUSENTE
   NO_LABORABLE
+  SUSPENDIDA
+}
+
+enum SuspensionScope {
+  SITE
+  INTERN
+  SELECTED_INTERNS
+}
+
+enum TeacherReportCategory {
+  DOMINIO_DISCIPLINAR
+  PLANIFICACION
+  MANEJO_DE_AULA
+  METODOLOGIA
+  PUNTUALIDAD
+  RESPONSABILIDAD
+  COMUNICACION
+  OTROS
+}
+
+enum TeacherReportNature {
+  POSITIVA
+  OBSERVACION_DE_MEJORA
+  INCIDENCIA
+}
+
+enum TeacherReportImportance {
+  BAJO
+  MEDIO
+  ALTO
 }
 
 enum EvidenceKind {
@@ -120,6 +151,7 @@ enum NotificationType {
   EVENTO_CRITICO
   REGULARIZACION
   ARCHIVADO
+  REPORTE_DOCENTE
 }
 
 enum NotificationChannel {
@@ -176,6 +208,7 @@ model UserAccount {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   intern             Intern?
+  conductorProfile   ConductorProfile?
   sessions           Session[]
   deviceBindings     DeviceBinding[]      @relation("DeviceBindingUser")
   revokedBindings    DeviceBinding[]      @relation("DeviceBindingRevoker")
@@ -184,6 +217,7 @@ model UserAccount {
   notifications      Notification[]
   acknowledgedEvents SecurityEvent[]      @relation("SecurityEventAck")
   pushTokens         PushToken[]
+  createdSuspensions Suspension[] @relation("SuspensionCreator")
 
   @@index([role, status])
   @@map("user_account")
@@ -294,6 +328,7 @@ model Site {
   attendanceDays AttendanceDay[]
   securityEvents SecurityEvent[]
   archiveBatches ArchiveBatch[]
+  suspensions    Suspension[]
 
   @@index([active])
   @@map("site")
@@ -329,10 +364,49 @@ model Intern {
   attendanceDays AttendanceDay[]
   securityEvents SecurityEvent[]
   evidences      EvidencePhoto[] @relation("InternEvidences")
+  conductorAssignments InternConductor[]
+  suspensionAssignments SuspensionIntern[]
+  teacherReports TeacherReport[]
+  suspensions Suspension[] @relation("InternSuspension")
 
   @@index([siteId, active])
   @@index([lastNames, firstNames])
   @@map("intern")
+}
+
+/// Perfil y permisos del docente/conductor. La identidad sigue viviendo en
+/// UserAccount para conservar un unico flujo de autenticacion.
+model ConductorProfile {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @unique @map("user_id") @db.Uuid
+  user      UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String?     @db.VarChar(30)
+  email     String?     @db.VarChar(160)
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignments InternConductor[]
+  reports     TeacherReport[]
+
+  @@map("conductor_profile")
+}
+
+/// Relacion muchos a muchos con historia de activacion/desactivacion.
+model InternConductor {
+  id          String           @id @default(uuid()) @db.Uuid
+  internId    String           @map("intern_id") @db.Uuid
+  conductorId String           @map("conductor_id") @db.Uuid
+  intern      Intern           @relation(fields: [internId], references: [id], onDelete: Cascade)
+  conductor   ConductorProfile @relation(fields: [conductorId], references: [id], onDelete: Cascade)
+  assignedBy  String?          @map("assigned_by") @db.Uuid
+  assignedAt  DateTime         @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  revokedAt   DateTime?        @map("revoked_at") @db.Timestamptz(6)
+
+  @@unique([internId, conductorId], name: "uq_intern_conductor")
+  @@index([conductorId, revokedAt])
+  @@index([internId, revokedAt])
+  @@map("intern_conductor")
 }
 
 /// Horario por dia de semana con vigencia temporal.
@@ -382,6 +456,8 @@ model AttendanceDay {
   scheduleEntryId      String? @map("schedule_entry_id") @db.Uuid
 
   status      AttendanceDayStatus @default(PROGRAMADO)
+  sessionName String              @default("Jornada") @map("session_name") @db.VarChar(160)
+  observation String?             @db.VarChar(500)
   punctuality Punctuality?
   /// Minutos de tardanza respecto a la hora programada (0 si puntual).
   lateMinutes Int @default(0) @map("late_minutes")
@@ -400,11 +476,14 @@ model AttendanceDay {
 
   marks           AttendanceMark[]
   regularizations Regularization[]
+  suspension      Suspension? @relation(fields: [suspensionId], references: [id], onDelete: SetNull)
+  suspensionId    String? @map("suspension_id") @db.Uuid
 
   @@unique([internId, businessDate], name: "uq_attendance_day_intern_date")
   @@index([businessDate, siteId])
   @@index([siteId, status, businessDate])
   @@index([pendingExit, businessDate])
+  @@index([suspensionId])
   @@map("attendance_day")
 }
 
@@ -472,6 +551,64 @@ model Regularization {
   @@index([attendanceDayId])
   @@index([adminUserId, createdAt])
   @@map("regularization")
+}
+
+/// Suspensiones programadas por administrador. Una suspension de sede puede
+/// afectar a todos los practicantes, mientras que las otras dos modalidades
+/// quedan explicitamente delimitadas por las relaciones de abajo.
+model Suspension {
+  id            String          @id @default(uuid()) @db.Uuid
+  businessDate  DateTime        @map("business_date") @db.Date
+  scope         SuspensionScope
+  siteId        String?         @map("site_id") @db.Uuid
+  internId      String?         @map("intern_id") @db.Uuid
+  reason        String          @db.VarChar(300)
+  observation   String?         @db.VarChar(500)
+  createdById   String          @map("created_by_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  site          Site?           @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  intern        Intern?         @relation("InternSuspension", fields: [internId], references: [id], onDelete: Restrict)
+  createdBy     UserAccount     @relation("SuspensionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  selectedInterns SuspensionIntern[]
+  attendanceDays AttendanceDay[]
+
+  @@index([businessDate, scope])
+  @@index([siteId, businessDate])
+  @@index([internId, businessDate])
+  @@map("suspension")
+}
+
+model SuspensionIntern {
+  suspensionId String     @map("suspension_id") @db.Uuid
+  internId     String     @map("intern_id") @db.Uuid
+  suspension   Suspension @relation(fields: [suspensionId], references: [id], onDelete: Cascade)
+  intern       Intern     @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  @@id([suspensionId, internId])
+  @@map("suspension_intern")
+}
+
+/// Seguimiento privado del docente hacia la administracion.
+model TeacherReport {
+  id            String                @id @default(uuid()) @db.Uuid
+  conductorId   String                @map("conductor_id") @db.Uuid
+  internId      String                @map("intern_id") @db.Uuid
+  category      TeacherReportCategory
+  nature        TeacherReportNature
+  importance    TeacherReportImportance
+  detail        String                @db.VarChar(2000)
+  recommendation String?             @db.VarChar(1000)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  conductor     ConductorProfile      @relation(fields: [conductorId], references: [id], onDelete: Restrict)
+  intern        Intern                @relation(fields: [internId], references: [id], onDelete: Restrict)
+
+  @@index([conductorId, createdAt])
+  @@index([internId, createdAt])
+  @@index([importance, nature, createdAt])
+  @@map("teacher_report")
 }
 
 // -----------------------------------------------------------------------------

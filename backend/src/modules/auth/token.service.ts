@@ -182,7 +182,7 @@ export async function rotateRefreshToken(
   }
 
   // El dispositivo que renueva debe ser el mismo que abrio la sesion.
-  if (session.deviceFingerprint && context.deviceFingerprint && session.deviceFingerprint !== context.deviceFingerprint) {
+  if (session.deviceFingerprint && session.deviceFingerprint !== context.deviceFingerprint) {
     await prisma.session.update({
       where: { id: session.id },
       data: { revokedAt: new Date(), revokedReason: 'DISPOSITIVO_DISTINTO' },
@@ -194,6 +194,17 @@ export async function rotateRefreshToken(
   const newExpiresAt = new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * 86_400_000);
 
   const newSession = await prisma.$transaction(async (tx) => {
+    // Reclamo atomico: solo una peticion puede convertir esta sesion en
+    // ROTACION. Las peticiones concurrentes reciben una sesion revocada.
+    const claimedAt = new Date();
+    const claimed = await tx.session.updateMany({
+      where: { id: session.id, revokedAt: null },
+      data: { revokedAt: claimedAt, revokedReason: 'ROTACION', lastSeenAt: claimedAt },
+    });
+    if (claimed.count !== 1) {
+      throw errors.unauthorized('SESION_REVOCADA', 'La sesión ya fue renovada. Vuelva a iniciar sesión.');
+    }
+
     const created = await tx.session.create({
       data: {
         userId: session.userId,
@@ -204,10 +215,7 @@ export async function rotateRefreshToken(
         expiresAt: newExpiresAt,
       },
     });
-    await tx.session.update({
-      where: { id: session.id },
-      data: { revokedAt: new Date(), revokedReason: 'ROTACION', replacedById: created.id, lastSeenAt: new Date() },
-    });
+    await tx.session.update({ where: { id: session.id }, data: { replacedById: created.id } });
     return created;
   });
 

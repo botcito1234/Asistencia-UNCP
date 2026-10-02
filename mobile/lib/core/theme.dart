@@ -5,6 +5,7 @@
 /// una tardanza se vea siempre del mismo color.
 library;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class ColoresEstado {
@@ -39,6 +40,7 @@ class ColoresEstado {
     if (estado == 'PRESENTE') {
       return puntualidad == 'TARDANZA' ? aviso : exito;
     }
+    if (estado == 'SUSPENDIDA') return info;
     return neutro;
   }
 
@@ -72,12 +74,23 @@ ThemeData construirTema() {
       backgroundColor: ColoresEstado.marca,
       foregroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
         color: Colors.white,
         fontSize: 18,
         fontWeight: FontWeight.w600,
       ),
+    ),
+
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      },
     ),
 
     cardTheme: CardThemeData(
@@ -122,8 +135,7 @@ ThemeData construirTema() {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFCBD5E1)),

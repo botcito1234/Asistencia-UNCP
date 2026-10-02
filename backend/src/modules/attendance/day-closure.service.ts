@@ -19,6 +19,7 @@ import { recordSecurityEvent } from '../security/security-event.service.js';
 import { notify } from '../notifications/notification.service.js';
 import { broadcast } from '../notifications/realtime.js';
 import { recordAudit } from '../audit/audit.service.js';
+import { findEffectiveSuspension } from '../suspensions/suspension.service.js';
 
 export interface ClosureSummary {
   siteId: string;
@@ -29,6 +30,7 @@ export interface ClosureSummary {
   salidasPendientes: number;
   presentesCompletos: number;
   sinJornada: number;
+  suspendidas: number;
   yaCerrado: boolean;
 }
 
@@ -56,6 +58,7 @@ export async function closeSiteDay(siteId: string, businessDate: string, force =
         salidasPendientes: 0,
         presentesCompletos: 0,
         sinJornada: 0,
+        suspendidas: 0,
         yaCerrado: true,
       };
     }
@@ -76,6 +79,7 @@ export async function closeSiteDay(siteId: string, businessDate: string, force =
     salidasPendientes: 0,
     presentesCompletos: 0,
     sinJornada: 0,
+    suspendidas: 0,
     yaCerrado: false,
   };
 
@@ -90,13 +94,29 @@ export async function closeSiteDay(siteId: string, businessDate: string, force =
     for (const intern of interns) {
       summary.evaluados++;
 
-      const [schedule, day] = await Promise.all([
+      const [schedule, day, suspension] = await Promise.all([
         getEffectiveSchedule(intern.id, businessDate),
         prisma.attendanceDay.findUnique({
           where: { uq_attendance_day_intern_date: { internId: intern.id, businessDate: dateValue } },
           include: { marks: { select: { type: true } } },
         }),
+        findEffectiveSuspension(intern.id, siteId, businessDate),
       ]);
+
+      if (suspension) {
+        summary.suspendidas++;
+        if (day && !day.closedAt) {
+          await prisma.attendanceDay.update({
+            where: { id: day.id },
+            data: { status: 'SUSPENDIDA', pendingExit: false, punctuality: null, lateMinutes: 0, closedAt: new Date(), suspensionId: suspension.id },
+          });
+        } else if (!day) {
+          await prisma.attendanceDay.create({
+            data: { internId: intern.id, siteId, businessDate: dateValue, status: 'SUSPENDIDA', closedAt: new Date(), suspensionId: suspension.id },
+          });
+        }
+        continue;
+      }
 
       const hasCheckIn = day?.marks.some((m) => m.type === 'ENTRADA') ?? false;
       const hasCheckOut = day?.marks.some((m) => m.type === 'SALIDA') ?? false;

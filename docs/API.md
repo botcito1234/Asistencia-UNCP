@@ -78,6 +78,27 @@ al usuario. `meta` trae datos concretos para guiar la acción.
 | `CONFLICTO` | 409 | |
 | `DEMASIADAS_SOLICITUDES` | 429 | Límite de tasa |
 | `DEPENDENCIA_EXTERNA` | 502 | Base de datos o servicio externo no disponible |
+
+## Google Maps Routes API (opcional)
+
+La API conserva OpenStreetMap como mapa base. Cuando se habilita Google Maps en
+el backend, el panel puede solicitar una ruta vial sin exponer la clave al
+navegador:
+
+```text
+GET /api/v1/mapas/ruta?origin=-12.0464,-77.0428&destination=-13.5319,-71.9675&mode=driving
+Authorization: Bearer <accessToken>
+```
+
+`mode` acepta `driving`, `walking`, `bicycling` o `two_wheeler`. La respuesta
+normaliza `distanceMeters`, `durationSeconds` y `encodedPolyline` para que el
+cliente pueda dibujar la ruta. Si Maps está deshabilitado, responde `503`
+`DEPENDENCIA_EXTERNA` y el mapa base sigue funcionando.
+
+La implementación usa **Routes API / Compute Routes**. La URL de
+`directions/json` compartida corresponde a Directions API Legacy; no se copia
+la clave al código ni al APK. Configure `GOOGLE_MAPS_ENABLED`,
+`GOOGLE_MAPS_API_KEY` y `GOOGLE_MAPS_TIMEOUT_MS` en el `.env` del backend.
 | `ERROR_INTERNO` | 500 | |
 
 ---
@@ -311,6 +332,24 @@ primero.
 | DELETE | `/practicantes/:id/dispositivos/:bindingId` | `{ reason }` Desvincula |
 | POST | `/practicantes/:id/dispositivos/autorizar-cambio` | `{ reason }` Permiso de un solo uso, 48 h |
 | POST | `/practicantes/:id/restablecer-password` | Devuelve contraseña temporal |
+
+---
+
+## Cargas masivas — `/cargas-masivas` (admin)
+
+Ambos endpoints reciben `multipart/form-data` con el campo `archivo` y aceptan
+únicamente `.xlsx` de hasta 10 MB. La plantilla descargable es
+`web-admin/public/plantillas/plantilla-carga-masiva-practicantes.xlsx`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/cargas-masivas/practicantes/preview` | Valida encabezados, filas, horarios, sedes activas y DNIs sin escribir |
+| POST | `/cargas-masivas/practicantes/commit` | Revalida el archivo y crea el lote completo en una transacción |
+
+La respuesta de `preview` contiene `rows`, `errors` y `summary` (`totalRows`,
+`validRows`, `errorRows`). La confirmación devuelve `batchId`, `importedCount` y
+las credenciales temporales una sola vez. El límite predeterminado es de 500
+filas y se configura con `BULK_IMPORT_MAX_ROWS`.
 
 ---
 

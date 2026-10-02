@@ -96,6 +96,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // --- Identidad visual -----------------------------
+                      const Center(child: MarcaNexora()),
+                      const SizedBox(height: 18),
                       Center(
                         child: Image.asset(
                           'assets/marca/uncp-escudo.png',
@@ -109,7 +111,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 18),
                       const Text(
-                        AppConfig.appName,
+                        AppConfig.productName,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 22,
@@ -131,7 +133,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const Text(
                         'Ingresa con tu DNI para registrar tu asistencia',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 32),
 
@@ -180,7 +185,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ? 'Mostrar contraseña'
                                 : 'Ocultar contraseña',
                             onPressed: () => setState(
-                                () => _ocultarPassword = !_ocultarPassword),
+                              () => _ocultarPassword = !_ocultarPassword,
+                            ),
                           ),
                         ),
                         validator: (v) => (v == null || v.isEmpty)
@@ -198,7 +204,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ? const Text(
                                   'Tu cuenta está vinculada a otro teléfono. El administrador debe autorizar el cambio antes de que puedas entrar desde este.',
                                   style: TextStyle(
-                                      fontSize: 13, color: Color(0xFF475569)),
+                                    fontSize: 13,
+                                    color: Color(0xFF475569),
+                                  ),
                                 )
                               : null,
                         ),

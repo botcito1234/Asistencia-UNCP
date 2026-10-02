@@ -1,4 +1,4 @@
-# Control de Asistencia de Practicantes
+# NEXORA · Control de Asistencia de Practicantes
 
 Sistema de control de asistencia con verificación por GPS, geocerca y evidencia
 fotográfica obligatoria. Pensado para ~30 sedes y ~60 practicantes, con una
@@ -45,10 +45,10 @@ Control de asistencia/
 
 | Pieza | Tecnología | Estado |
 |---|---|---|
-| Backend | Node 22 · TypeScript · Express · Prisma · PostgreSQL 16 | Compila · 164 pruebas en verde |
+| Backend | Node 22 · TypeScript · Express · Prisma · PostgreSQL 16 | Compila · 185 pruebas en verde |
 | Panel web | React 18 · Vite 6 · Tailwind 3 · TanStack Query · Leaflet | Compila |
-| App móvil | Flutter 3.47 · Riverpod · Dio · geolocator · camera | Analiza sin avisos · 24 pruebas · APK debug y release compilan |
-| Base de datos | PostgreSQL 16 con restricciones, triggers e índices parciales | 2 migraciones |
+| App móvil | Flutter 3.47 · Riverpod · Dio · geolocator · camera | Analiza sin avisos · 25 pruebas · APK debug y release compilan |
+| Base de datos | PostgreSQL 16 con restricciones, triggers e índices parciales | 4 migraciones |
 
 ### Identidad visual
 
@@ -174,6 +174,7 @@ Ninguna está en el código ni en el APK. Todas viven en el `.env` del servidor.
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`<br>`GOOGLE_DRIVE_ROOT_FOLDER_ID` | Archivado histórico en Drive | El archivado se genera y **verifica en disco local**, marcado como pendiente. Nada se borra |
 | `FCM_PROJECT_ID`<br>`FCM_CLIENT_EMAIL`<br>`FCM_PRIVATE_KEY` | Notificaciones push del sistema | Las alertas siguen llegando en la app y el panel (canal interno y tiempo real) |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | Alertas críticas por correo | Las alertas críticas siguen visibles en el panel |
+| `GOOGLE_MAPS_API_KEY` | Rutas viales opcionales del panel mediante Routes API | El mapa base sigue funcionando con OpenStreetMap |
 
 Los pasos exactos para obtener cada credencial están comentados en
 [`backend/.env.example`](backend/.env.example).
@@ -243,10 +244,10 @@ la verificación falla, el paquete queda en disco y no se borra nada.
 ## Pruebas
 
 ```bash
-# Backend: 151 pruebas contra PostgreSQL real y efímero
+# Backend: 185 pruebas contra PostgreSQL real y efímero
 cd backend && npm test
 
-# App móvil: 24 pruebas
+# App móvil: 25 pruebas
 cd mobile && flutter test && flutter analyze
 
 # Comprobación de tipos
@@ -282,6 +283,5 @@ Cobertura de los 26 casos exigidos: ver [docs/PRUEBAS.md](docs/PRUEBAS.md).
 - Varias sedes por practicante
 - Asistencia sin conexión
 - Más de una entrada o salida por día
-- Roles adicionales a ADMINISTRADOR y PRACTICANTE
-- Importación masiva desde Excel
+- Roles académicos adicionales al trío ADMINISTRADOR, PRACTICANTE y DOCENTE_CONDUCTOR
 - Módulos académicos o de ERP

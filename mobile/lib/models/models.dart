@@ -23,6 +23,7 @@ class Usuario {
 
   bool get esAdministrador => rol == 'ADMINISTRADOR';
   bool get esPracticante => rol == 'PRACTICANTE';
+  bool get esDocenteConductor => rol == 'DOCENTE_CONDUCTOR';
 
   factory Usuario.desdeJson(Map<String, dynamic> json) => Usuario(
         id: json['id'] as String,
@@ -401,6 +402,7 @@ class TableroTotales {
     required this.salidas,
     required this.todaviaDentro,
     required this.salidasPendientes,
+    required this.suspendidas,
     required this.alertas,
   });
 
@@ -412,6 +414,7 @@ class TableroTotales {
   final int salidas;
   final int todaviaDentro;
   final int salidasPendientes;
+  final int suspendidas;
   final int alertas;
 
   factory TableroTotales.desdeJson(Map<String, dynamic> json) =>
@@ -424,6 +427,7 @@ class TableroTotales {
         salidas: (json['salidas'] as num?)?.toInt() ?? 0,
         todaviaDentro: (json['todaviaDentro'] as num?)?.toInt() ?? 0,
         salidasPendientes: (json['salidasPendientes'] as num?)?.toInt() ?? 0,
+        suspendidas: (json['suspendidas'] as num?)?.toInt() ?? 0,
         alertas: (json['alertas'] as num?)?.toInt() ?? 0,
       );
 }

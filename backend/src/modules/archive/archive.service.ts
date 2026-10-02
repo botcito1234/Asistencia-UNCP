@@ -99,6 +99,7 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
         intern: { select: { id: true, dni: true, firstNames: true, lastNames: true, areaGroup: true } },
         marks: { include: { evidence: true } },
         regularizations: true,
+        suspension: { select: { id: true, reason: true } },
       },
       orderBy: { businessDate: 'asc' },
     });
@@ -126,7 +127,7 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
           usableEvidences.push(e);
         } else {
           integrity.alteradas.push(e.id);
-          usableEvidences.push(e); // se archiva igual, marcada como alterada
+          // No se incluye evidencia cuyo hash no coincide.
         }
         continue;
       }
@@ -157,6 +158,16 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
       warnings.push(integrity.faltantes.length + ' fotografía(s) no se encontraron en el almacenamiento.');
     }
 
+    // No se permite cerrar ni liberar un paquete con evidencia alterada o
+    // faltante. El lote queda FALLIDO y la evidencia permanece preservada.
+    if (integrity.alteradas.length > 0 || integrity.faltantes.length > 0) {
+      throw errors.conflict(
+        'EVIDENCIA_INVALIDA',
+        'El archivado se detuvo porque contiene evidencia alterada o faltante.',
+        { alteradas: integrity.alteradas, faltantes: integrity.faltantes },
+      );
+    }
+
     // --- 3. Reportes del periodo ------------------------------------------
     const reportData = await buildReport({ kind: 'sede', from, to, siteId: site.id });
     const [excel, pdf] = await Promise.all([generateExcel(reportData), generatePdf(reportData)]);
@@ -180,7 +191,10 @@ export async function archivePeriod(request: ArchiveRequest): Promise<ArchiveRes
         fecha: d.businessDate.toISOString().slice(0, 10),
         practicante: { dni: d.intern.dni, nombres: d.intern.firstNames, apellidos: d.intern.lastNames, area: d.intern.areaGroup },
         horaProgramada: d.scheduledStartMinute,
+        sesion: d.sessionName,
+        observacion: d.observation,
         estado: d.status,
+        suspension: d.suspension ? { id: d.suspension.id, motivo: d.suspension.reason } : null,
         puntualidad: d.punctuality,
         minutosTardanza: d.lateMinutes,
         salidaPendiente: d.pendingExit,

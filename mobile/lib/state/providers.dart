@@ -58,6 +58,10 @@ final adminServiceProvider = Provider<AdminService>(
   (ref) => AdminService(ref.watch(apiClientProvider)),
 );
 
+final teacherServiceProvider = Provider<TeacherService>(
+  (ref) => TeacherService(ref.watch(apiClientProvider)),
+);
+
 // ---------------------------------------------------------------------------
 // Sesion
 // ---------------------------------------------------------------------------

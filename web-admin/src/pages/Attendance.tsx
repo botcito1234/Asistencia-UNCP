@@ -88,6 +88,7 @@ export function Attendance() {
               <option value="PRESENTE">Presente</option>
               <option value="AUSENTE">Falta</option>
               <option value="NO_LABORABLE">Sin jornada</option>
+              <option value="SUSPENDIDA">Suspendida</option>
             </Select>
           </Field>
           <Field label="Puntualidad" htmlFor="puntualidad">

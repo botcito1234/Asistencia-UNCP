@@ -14,11 +14,15 @@
  * de refresh y revocacion inmediata en servidor.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-const API = BASE_URL + '/api/v1';
+const BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
+    /\/$/,
+    "",
+  ) ?? "";
+const API = BASE_URL + "/api/v1";
 
-const ACCESS_KEY = 'asistencia.accessToken';
-const REFRESH_KEY = 'asistencia.refreshToken';
+const ACCESS_KEY = "asistencia.accessToken";
+const REFRESH_KEY = "asistencia.refreshToken";
 
 export class ApiError extends Error {
   constructor(
@@ -30,7 +34,7 @@ export class ApiError extends Error {
     readonly requestId?: string,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
@@ -76,14 +80,16 @@ async function refreshTokens(): Promise<boolean> {
     if (!refreshToken) return false;
 
     try {
-      const res = await fetch(API + '/auth/refresh', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
+      const res = await fetch(API + "/auth/refresh", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) return false;
 
-      const data = (await res.json()) as { tokens: { accessToken: string; refreshToken: string } };
+      const data = (await res.json()) as {
+        tokens: { accessToken: string; refreshToken: string };
+      };
       tokens.set(data.tokens.accessToken, data.tokens.refreshToken);
       return true;
     } catch {
@@ -101,7 +107,7 @@ async function refreshTokens(): Promise<boolean> {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Uso interno para evitar bucles de renovacion. */
@@ -109,26 +115,39 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-function buildUrl(path: string, query?: RequestOptions['query']): string {
+function buildUrl(path: string, query?: RequestOptions["query"]): string {
   const url = new URL(API + path, window.location.origin);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      if (v !== undefined && v !== null && v !== "")
+        url.searchParams.set(k, String(v));
     }
   }
   return url.pathname + url.search;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const headers: Record<string, string> = {};
   const access = tokens.access;
-  if (access) headers.authorization = 'Bearer ' + access;
-  if (options.body !== undefined) headers['content-type'] = 'application/json';
+  if (access) headers.authorization = "Bearer " + access;
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (options.body !== undefined && !isFormData)
+    headers["content-type"] = "application/json";
+  const requestBody: BodyInit | undefined =
+    options.body !== undefined
+      ? isFormData
+        ? (options.body as FormData)
+        : JSON.stringify(options.body)
+      : undefined;
 
   const res = await fetch(buildUrl(path, options.query), {
-    method: options.method ?? 'GET',
+    method: options.method ?? "GET",
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: requestBody,
     signal: options.signal,
   });
 
@@ -139,7 +158,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!res.ok) {
-    let payload: { error?: { code?: string; message?: string; details?: unknown; meta?: Record<string, unknown>; requestId?: string } } = {};
+    let payload: {
+      error?: {
+        code?: string;
+        message?: string;
+        details?: unknown;
+        meta?: Record<string, unknown>;
+        requestId?: string;
+      };
+    } = {};
     try {
       payload = await res.json();
     } catch {
@@ -148,8 +175,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const err = payload.error;
     if (res.status === 401) notifySessionExpired();
     throw new ApiError(
-      err?.code ?? 'ERROR_INTERNO',
-      err?.message ?? 'No se pudo completar la solicitud (' + res.status + ').',
+      err?.code ?? "ERROR_INTERNO",
+      err?.message ?? "No se pudo completar la solicitud (" + res.status + ").",
       res.status,
       err?.details,
       err?.meta,
@@ -162,10 +189,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 /** Descarga un archivo binario (reportes) respetando el nombre que envia el servidor. */
-export async function apiDownload(path: string, query?: RequestOptions['query']): Promise<void> {
+export async function apiDownload(
+  path: string,
+  query?: RequestOptions["query"],
+): Promise<void> {
   const access = tokens.access;
   const res = await fetch(buildUrl(path, query), {
-    headers: access ? { authorization: 'Bearer ' + access } : {},
+    headers: access ? { authorization: "Bearer " + access } : {},
   });
 
   if (res.status === 401 && tokens.refresh) {
@@ -174,23 +204,23 @@ export async function apiDownload(path: string, query?: RequestOptions['query'])
   }
 
   if (!res.ok) {
-    let message = 'No se pudo generar el archivo.';
+    let message = "No se pudo generar el archivo.";
     try {
       const payload = await res.json();
       message = payload?.error?.message ?? message;
     } catch {
       // sin cuerpo JSON
     }
-    throw new ApiError('ERROR_INTERNO', message, res.status);
+    throw new ApiError("ERROR_INTERNO", message, res.status);
   }
 
-  const disposition = res.headers.get('content-disposition') ?? '';
+  const disposition = res.headers.get("content-disposition") ?? "";
   const match = /filename="?([^"]+)"?/.exec(disposition);
-  const filename = match?.[1] ?? 'reporte';
+  const filename = match?.[1] ?? "reporte";
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -205,11 +235,18 @@ export function resourceUrl(signedPath: string): string {
 }
 
 export const api = {
-  get: <T,>(path: string, query?: RequestOptions['query']) => apiRequest<T>(path, { query }),
-  post: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
-  patch: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
-  put: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
-  delete: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'DELETE', body }),
+  get: <T>(path: string, query?: RequestOptions["query"]) =>
+    apiRequest<T>(path, { query }),
+  post: <T>(path: string, body?: unknown) =>
+    apiRequest<T>(path, { method: "POST", body }),
+  upload: <T>(path: string, formData: FormData) =>
+    apiRequest<T>(path, { method: "POST", body: formData }),
+  patch: <T>(path: string, body?: unknown) =>
+    apiRequest<T>(path, { method: "PATCH", body }),
+  put: <T>(path: string, body?: unknown) =>
+    apiRequest<T>(path, { method: "PUT", body }),
+  delete: <T>(path: string, body?: unknown) =>
+    apiRequest<T>(path, { method: "DELETE", body }),
 };
 
 export { API as API_BASE };

@@ -117,6 +117,8 @@ async function handleMark(req: Parameters<typeof auditContextOf>[0], type: MarkK
     userId: req.auth!.userId,
     internId,
     type,
+    sessionName: body.sessionName,
+    observation: body.observation ?? null,
     location: {
       latitude: body.latitude,
       longitude: body.longitude,

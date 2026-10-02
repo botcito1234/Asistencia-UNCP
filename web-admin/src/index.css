@@ -6,25 +6,27 @@
    porque el sistema debe seguir funcionando en una red sin internet. Es una
    fuente variable: un solo archivo cubre de Regular a SemiBold. */
 @font-face {
-  font-family: 'Sora';
+  font-family: "Sora";
   font-style: normal;
   font-weight: 100 800;
   font-display: swap;
-  src: url('/fuentes/sora-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
-    U+2212, U+2215, U+FEFF, U+FFFD;
+  src: url("/fuentes/sora-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: 'Sora';
+  font-family: "Sora";
   font-style: normal;
   font-weight: 100 800;
   font-display: swap;
-  src: url('/fuentes/sora-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
-    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
-    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  src: url("/fuentes/sora-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 @layer base {
@@ -34,7 +36,12 @@
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
-    font-family: Sora, 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family:
+      Sora,
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 
   /* Las horas y las cifras se leen en columna: tienen que alinearse. */
@@ -58,7 +65,175 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
+  }
+}
+
+/* Movimiento de producto: breve, funcional y respetuoso con la lectura. */
+@keyframes nexora-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nexora-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nexora-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nexora-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nexora-skeleton {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes nexora-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+  }
+}
+
+@layer components {
+  .nexora-page-in {
+    animation: nexora-page-in 220ms ease-out both;
+  }
+
+  .nexora-fade-in {
+    animation: nexora-page-in 180ms ease-out both;
+  }
+
+  .nexora-dialog-in {
+    animation: nexora-dialog-in 180ms ease-out both;
+  }
+
+  .nexora-overlay-in {
+    animation: nexora-overlay-in 160ms ease-out both;
+  }
+
+  .nexora-toast-in {
+    animation: nexora-toast-in 180ms ease-out both;
+  }
+
+  .nexora-skeleton {
+    animation: nexora-skeleton 1.4s ease-in-out infinite;
+  }
+
+  .nexora-live-pulse {
+    animation: nexora-live-pulse 1.8s ease-out infinite;
+  }
+
+  .nexora-card-depth {
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease,
+      border-color 220ms ease;
+  }
+
+  .nexora-metric-depth {
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .nexora-brand-mark {
+    transform-style: preserve-3d;
+    transition: transform 220ms ease;
+  }
+
+  .nexora-interactive {
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .nexora-interactive:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .nexora-interactive:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  tbody tr {
+    transition: background-color 160ms ease;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nexora-card-depth:hover,
+  .nexora-card-depth:focus-within {
+    transform: perspective(1200px) translateY(-2px) rotateX(0.35deg)
+      rotateY(-0.35deg);
+    box-shadow:
+      0 10px 24px rgba(15, 23, 42, 0.08),
+      0 2px 5px rgba(15, 23, 42, 0.04);
+    border-color: rgba(148, 163, 184, 0.72);
+  }
+
+  .nexora-metric-depth:hover,
+  .nexora-metric-depth:focus-within {
+    transform: perspective(900px) translateY(-2px) rotateX(0.5deg)
+      rotateY(-0.5deg);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    border-color: rgba(96, 165, 250, 0.55);
+  }
+
+  .group:hover .nexora-brand-mark {
+    transform: perspective(500px) rotateY(-7deg) rotateX(3deg) translateZ(2px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }
 

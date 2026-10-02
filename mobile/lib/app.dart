@@ -8,8 +8,10 @@ import 'screens/cambiar_password_screen.dart';
 import 'screens/consentimiento_screen.dart';
 import 'screens/inicio_admin_screen.dart';
 import 'screens/inicio_practicante_screen.dart';
+import 'screens/inicio_conductor_screen.dart';
 import 'screens/login_screen.dart';
 import 'state/providers.dart';
+import 'widgets/comunes.dart';
 
 /// Raiz de la aplicacion.
 ///
@@ -45,16 +47,43 @@ class _Enrutador extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sesion = ref.watch(sesionProvider);
 
+    final reduceMovimiento = MediaQuery.of(context).disableAnimations;
+    Widget transicionar(String clave, Widget child) {
+      return AnimatedSwitcher(
+        duration: reduceMovimiento
+            ? Duration.zero
+            : const Duration(milliseconds: 280),
+        reverseDuration: reduceMovimiento
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (vista, animation) {
+          final escala = Tween<double>(begin: 0.985, end: 1).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          );
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(scale: escala, child: vista),
+          );
+        },
+        child: KeyedSubtree(key: ValueKey(clave), child: child),
+      );
+    }
+
     if (sesion.fase == FaseSesion.cargando) {
-      return const _PantallaCarga();
+      return transicionar('cargando', const _PantallaCarga());
     }
 
     final usuario = sesion.usuario;
-    if (usuario == null) return const LoginScreen();
+    if (usuario == null) return transicionar('login', const LoginScreen());
 
     // 1. Contrasena inicial: es lo primero, antes que cualquier otra cosa.
     if (usuario.debeCambiarPassword) {
-      return const CambiarPasswordScreen(obligatorio: true);
+      return transicionar(
+        'cambiar-password',
+        const CambiarPasswordScreen(obligatorio: true),
+      );
     }
 
     // 2. Consentimiento informado: sin el no se puede tratar ubicacion ni foto.
@@ -62,13 +91,17 @@ class _Enrutador extends ConsumerWidget {
     if (usuario.esPracticante &&
         practicante != null &&
         !practicante.consentimientoAceptado) {
-      return const ConsentimientoScreen();
+      return transicionar('consentimiento', const ConsentimientoScreen());
     }
 
     // 3. Interfaz segun el rol.
-    return usuario.esAdministrador
-        ? const InicioAdminScreen()
-        : const InicioPracticanteScreen();
+    if (usuario.esAdministrador) {
+      return transicionar('administrador', const InicioAdminScreen());
+    }
+    if (usuario.esDocenteConductor) {
+      return transicionar('conductor', const InicioConductorScreen());
+    }
+    return transicionar('practicante', const InicioPracticanteScreen());
   }
 }
 
@@ -83,22 +116,10 @@ class _PantallaCarga extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.how_to_reg_rounded,
-                size: 40,
-                color: ColoresEstado.marca,
-              ),
-            ),
+            const MarcaNexora(sobreOscuro: true),
             const SizedBox(height: 24),
             const Text(
-              AppConfig.appName,
+              AppConfig.productName,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,

@@ -56,8 +56,10 @@ class _InicioAdminScreenState extends ConsumerState<InicioAdminScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Administración',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              'NEXORA · Administración',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             Text(
               usuario?.nombre ?? '',
               style: const TextStyle(
@@ -108,10 +110,14 @@ class _InicioAdminScreenState extends ConsumerState<InicioAdminScreen> {
               PopupMenuItem(
                 value: 'salir',
                 child: ListTile(
-                  leading:
-                      Icon(Icons.logout_rounded, color: ColoresEstado.peligro),
-                  title: Text('Cerrar sesión',
-                      style: TextStyle(color: ColoresEstado.peligro)),
+                  leading: Icon(
+                    Icons.logout_rounded,
+                    color: ColoresEstado.peligro,
+                  ),
+                  title: Text(
+                    'Cerrar sesión',
+                    style: TextStyle(color: ColoresEstado.peligro),
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -265,10 +271,12 @@ class _Tablero extends ConsumerWidget {
                 icono: Icons.business_outlined,
               )
             else
-              ...datos.sedes.map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _FilaSede(sede: s),
-                  )),
+              ...datos.sedes.map(
+                (s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _FilaSede(sede: s),
+                ),
+              ),
 
             const SizedBox(height: 24),
           ],

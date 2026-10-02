@@ -24,6 +24,10 @@ import { notificationsRouter, settingsRouter } from './http/routes/notifications
 import { evidenceRouter } from './http/routes/evidence.routes.js';
 import { reportsRouter } from './http/routes/reports.routes.js';
 import { archiveRouter } from './http/routes/archive.routes.js';
+import { conductorRouter } from './http/routes/conductor.routes.js';
+import { suspensionRouter } from './http/routes/suspension.routes.js';
+import { mapsRouter } from './http/routes/maps.routes.js';
+import { bulkImportRouter } from './http/routes/bulk-import.routes.js';
 import { prisma } from './infra/db/prisma.js';
 import { PRIVACY_POLICY } from './modules/privacy/policy.js';
 
@@ -123,6 +127,10 @@ export function createApp(): Express {
   app.use('/api/v1/evidencias', evidenceRouter);
   app.use('/api/v1/reportes', reportsRouter);
   app.use('/api/v1/archivado', archiveRouter);
+  app.use('/api/v1/operacion', conductorRouter);
+  app.use('/api/v1/suspensiones', suspensionRouter);
+  app.use('/api/v1/mapas', mapsRouter);
+  app.use('/api/v1/cargas-masivas', bulkImportRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -3,8 +3,8 @@
 ## Cómo se ejecutan
 
 ```bash
-cd backend && npm test          # 151 pruebas, PostgreSQL real y efímero
-cd mobile  && flutter test      # 24 pruebas
+cd backend && npm test          # 185 pruebas, PostgreSQL real y efímero
+cd mobile  && flutter test      # 25 pruebas
 cd mobile  && flutter analyze   # análisis estático
 cd backend && npm run typecheck
 cd web-admin && npm run typecheck && npm run build

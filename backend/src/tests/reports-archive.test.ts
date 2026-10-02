@@ -272,7 +272,7 @@ describe('Caso 20 - Archivado histórico', () => {
   });
 
   it('detecta una fotografía alterada en disco', async () => {
-    const ctx = await jornadaCompleta();
+    await jornadaCompleta();
 
     const evidencia = await prisma.evidencePhoto.findFirst();
     // Se altera el binario por fuera del sistema.

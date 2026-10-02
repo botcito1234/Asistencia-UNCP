@@ -23,7 +23,9 @@ class AppConfig {
 
   static String get apiUrl => '$apiBaseUrl/api/v1';
 
-  static const String appName = 'Control de Asistencia';
+  static const String brandName = 'NEXORA';
+  static const String productName = 'Control de Asistencia';
+  static const String appName = 'NEXORA · Control de Asistencia';
 
   /// Tiempos de espera de red. Marcar asistencia sube una fotografia, por eso
   /// el envio tolera mas que una lectura normal.

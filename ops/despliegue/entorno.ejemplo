@@ -6,7 +6,7 @@
 
 # --- Identidad del servicio ---------------------------------------------------
 NODE_ENV=production
-APP_NAME=Control de Asistencia
+APP_NAME=NEXORA · Control de Asistencia
 APP_TIMEZONE=America/Lima
 
 # Dominio publico de la API. Debe coincidir con el del Caddyfile y con el que
@@ -48,6 +48,7 @@ STORAGE_ROOT=/datos/evidencias
 # cuanto Drive confirma el mismo MD5. Exige la seccion de Drive completa.
 EVIDENCE_REMOTE_STORAGE=true
 EVIDENCE_LOCAL_RETENTION_MINUTES=10
+BULK_IMPORT_MAX_ROWS=500
 
 # --- Google Drive -------------------------------------------------------------
 GOOGLE_DRIVE_ENABLED=true
@@ -58,6 +59,11 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID=
 GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REFRESH_TOKEN=
+
+# --- Google Maps Routes API --------------------------------------------------
+GOOGLE_MAPS_ENABLED=false
+GOOGLE_MAPS_API_KEY=
+GOOGLE_MAPS_TIMEOUT_MS=8000
 
 # Alternativa: cuenta de servicio. Solo sirve contra una unidad compartida.
 # GOOGLE_SERVICE_ACCOUNT_EMAIL=

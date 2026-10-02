@@ -7,15 +7,24 @@
  * VITE_MAP_TILE_URL en el entorno; la clave queda en la configuracion del panel
  * y nunca en el codigo.
  */
-import { MapContainer, TileLayer, Circle, Marker, Popup, Polyline } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { metros } from '../lib/format';
+import {
+  MapContainer,
+  TileLayer,
+  Circle,
+  Marker,
+  Popup,
+  Polyline,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { metros } from "../lib/format";
 
 const TILE_URL =
-  (import.meta.env.VITE_MAP_TILE_URL as string | undefined) ?? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  (import.meta.env.VITE_MAP_TILE_URL as string | undefined) ??
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const ATTRIBUTION =
-  (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined) ?? '&copy; Colaboradores de OpenStreetMap';
+  (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined) ??
+  "&copy; Colaboradores de OpenStreetMap";
 
 /**
  * Los iconos por defecto de Leaflet se cargan por URL relativa y se rompen al
@@ -23,22 +32,22 @@ const ATTRIBUTION =
  */
 function iconoSvg(color: string, letra: string): L.DivIcon {
   return L.divIcon({
-    className: '',
+    className: "",
     html:
       '<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:' +
       color +
       ';box-shadow:0 1px 4px rgba(0,0,0,.4);border:2px solid #fff"><span style="transform:rotate(45deg);color:#fff;font:700 11px/1 system-ui">' +
       letra +
-      '</span></div>',
+      "</span></div>",
     iconSize: [26, 26],
     iconAnchor: [13, 26],
     popupAnchor: [0, -24],
   });
 }
 
-const ICONO_SEDE = iconoSvg('#1F3A5F', 'S');
-const ICONO_DENTRO = iconoSvg('#059669', 'E');
-const ICONO_FUERA = iconoSvg('#E11D48', '!');
+const ICONO_SEDE = iconoSvg("#1F3A5F", "S");
+const ICONO_DENTRO = iconoSvg("#059669", "E");
+const ICONO_FUERA = iconoSvg("#E11D48", "!");
 
 export interface PuntoMarcacion {
   latitude: number;
@@ -49,36 +58,103 @@ export interface PuntoMarcacion {
   hora: string;
 }
 
+export interface RutaMapa {
+  encodedPolyline: string | null;
+}
+
+/** Decodificador de polylines de Google para no cargar otra dependencia. */
+function decodificarPolyline(encoded: string): [number, number][] {
+  const puntos: [number, number][] = [];
+  let indice = 0;
+  let latitud = 0;
+  let longitud = 0;
+
+  while (indice < encoded.length) {
+    let desplazamiento = 0;
+    let resultado = 0;
+    let byte: number;
+    do {
+      byte = encoded.charCodeAt(indice++) - 63;
+      resultado |= (byte & 0x1f) << desplazamiento;
+      desplazamiento += 5;
+    } while (byte >= 0x20 && indice < encoded.length);
+    latitud += resultado & 1 ? ~(resultado >> 1) : resultado >> 1;
+
+    desplazamiento = 0;
+    resultado = 0;
+    do {
+      byte = encoded.charCodeAt(indice++) - 63;
+      resultado |= (byte & 0x1f) << desplazamiento;
+      desplazamiento += 5;
+    } while (byte >= 0x20 && indice < encoded.length);
+    longitud += resultado & 1 ? ~(resultado >> 1) : resultado >> 1;
+    puntos.push([latitud / 1e5, longitud / 1e5]);
+  }
+
+  return puntos;
+}
+
 export function MapView({
   sede,
   puntos,
+  ruta,
   alto = 380,
 }: {
-  sede: { latitude: number; longitude: number; radiusMeters: number; nombre?: string };
+  sede: {
+    latitude: number;
+    longitude: number;
+    radiusMeters: number;
+    nombre?: string;
+  };
   puntos: PuntoMarcacion[];
+  ruta?: RutaMapa | null;
   alto?: number;
 }) {
   const centro: [number, number] = [sede.latitude, sede.longitude];
+  const polylineRuta = ruta?.encodedPolyline
+    ? decodificarPolyline(ruta.encodedPolyline)
+    : [];
 
   // El zoom se ajusta al radio para que la geocerca ocupe una parte util de la
   // vista sin tener que calcular limites con puntos fuera de rango.
-  const zoom = sede.radiusMeters <= 60 ? 18 : sede.radiusMeters <= 200 ? 16 : 14;
+  const zoom =
+    sede.radiusMeters <= 60 ? 18 : sede.radiusMeters <= 200 ? 16 : 14;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200" style={{ height: alto }}>
-      <MapContainer center={centro} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+    <div
+      className="overflow-hidden rounded-lg border border-slate-200"
+      style={{ height: alto }}
+    >
+      <MapContainer
+        center={centro}
+        zoom={zoom}
+        style={{ height: "100%", width: "100%" }}
+        scrollWheelZoom
+      >
         <TileLayer url={TILE_URL} attribution={ATTRIBUTION} maxZoom={19} />
 
         {/* Geocerca */}
         <Circle
           center={centro}
           radius={sede.radiusMeters}
-          pathOptions={{ color: '#1F3A5F', fillColor: '#2F66AA', fillOpacity: 0.12, weight: 2 }}
+          pathOptions={{
+            color: "#1F3A5F",
+            fillColor: "#2F66AA",
+            fillOpacity: 0.12,
+            weight: 2,
+          }}
         />
+
+        {polylineRuta.length > 1 && (
+          <Polyline
+            positions={polylineRuta}
+            pathOptions={{ color: "#2563EB", weight: 4, opacity: 0.8 }}
+          />
+        )}
 
         <Marker position={centro} icon={ICONO_SEDE}>
           <Popup>
-            <strong>{sede.nombre ?? 'Sede'}</strong>
+            <strong>{sede.nombre ?? "Sede"}</strong>
             <br />
             Radio permitido: {sede.radiusMeters} m
             <br />
@@ -96,17 +172,21 @@ export function MapView({
                 center={pos}
                 radius={p.accuracyMeters}
                 pathOptions={{
-                  color: dentro ? '#059669' : '#E11D48',
-                  fillColor: dentro ? '#10B981' : '#F43F5E',
+                  color: dentro ? "#059669" : "#E11D48",
+                  fillColor: dentro ? "#10B981" : "#F43F5E",
                   fillOpacity: 0.1,
                   weight: 1,
-                  dashArray: '4 4',
+                  dashArray: "4 4",
                 }}
               />
               {/* Linea al centro, para leer la distancia de un vistazo */}
               <Polyline
                 positions={[centro, pos]}
-                pathOptions={{ color: dentro ? '#059669' : '#E11D48', weight: 1.5, dashArray: '6 6' }}
+                pathOptions={{
+                  color: dentro ? "#059669" : "#E11D48",
+                  weight: 1.5,
+                  dashArray: "6 6",
+                }}
               />
               <Marker position={pos} icon={dentro ? ICONO_DENTRO : ICONO_FUERA}>
                 <Popup>
@@ -120,7 +200,7 @@ export function MapView({
                   <br />
                   {p.latitude.toFixed(6)}, {p.longitude.toFixed(6)}
                   <br />
-                  <em>{dentro ? 'Dentro del radio' : 'Fuera del radio'}</em>
+                  <em>{dentro ? "Dentro del radio" : "Fuera del radio"}</em>
                 </Popup>
               </Marker>
             </div>
@@ -146,13 +226,26 @@ export function SitePickerMap({
   const centro: [number, number] = [latitude, longitude];
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200" style={{ height: 300 }}>
-      <MapContainer center={centro} zoom={17} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+    <div
+      className="overflow-hidden rounded-lg border border-slate-200"
+      style={{ height: 300 }}
+    >
+      <MapContainer
+        center={centro}
+        zoom={17}
+        style={{ height: "100%", width: "100%" }}
+        scrollWheelZoom
+      >
         <TileLayer url={TILE_URL} attribution={ATTRIBUTION} maxZoom={19} />
         <Circle
           center={centro}
           radius={radiusMeters}
-          pathOptions={{ color: '#1F3A5F', fillColor: '#2F66AA', fillOpacity: 0.12, weight: 2 }}
+          pathOptions={{
+            color: "#1F3A5F",
+            fillColor: "#2F66AA",
+            fillOpacity: 0.12,
+            weight: 2,
+          }}
         />
         <Marker
           position={centro}
