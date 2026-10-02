@@ -17,8 +17,10 @@ class AppConfig {
   /// URL base del servidor, sin barra final.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // 10.0.2.2 es el host anfitrion visto desde el emulador de Android.
-    defaultValue: 'http://10.0.2.2:4000',
+    // El APK distribuido debe funcionar en un telefono real sin depender de
+    // una bandera de compilacion. En desarrollo se puede reemplazar con
+    // --dart-define=API_BASE_URL=http://10.0.2.2:4000.
+    defaultValue: 'https://asistencia-uncp-production.up.railway.app',
   );
 
   static String get apiUrl => '$apiBaseUrl/api/v1';
