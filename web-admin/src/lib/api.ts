@@ -123,7 +123,12 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
         url.searchParams.set(k, String(v));
     }
   }
-  return url.pathname + url.search;
+  // Conserva la ruta relativa cuando la API comparte origen (Vite o la
+  // reescritura de Vercel) y la URL completa cuando Vercel apunta directamente
+  // al servidor de API indicado por VITE_API_BASE_URL.
+  return url.origin === window.location.origin
+    ? url.pathname + url.search
+    : url.toString();
 }
 
 export async function apiRequest<T>(

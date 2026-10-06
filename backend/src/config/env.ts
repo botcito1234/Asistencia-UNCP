@@ -33,6 +33,28 @@ const num = (def: number) =>
     .transform((v) => (v === undefined || v === "" ? def : Number(v)))
     .pipe(z.number());
 
+const webAdminOrigins = z
+  .string()
+  .transform((value) => value.split(",").map((origin) => origin.trim()))
+  .pipe(
+    z.array(
+      z.string().refine((value) => {
+        try {
+          const url = new URL(value);
+          return (
+            ["http:", "https:"].includes(url.protocol) &&
+            ["", "/"].includes(url.pathname) &&
+            !url.search &&
+            !url.hash
+          );
+        } catch {
+          return false;
+        }
+      }, "Debe ser un origen HTTP(S) sin ruta.")
+    ).min(1)
+  )
+  .transform((origins) => origins.map((origin) => new URL(origin).origin).join(","));
+
 const schema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -42,7 +64,8 @@ const schema = z.object({
   APP_NAME: z.string().default("NEXORA · Control de Asistencia"),
   APP_TIMEZONE: z.string().default("America/Lima"),
   PUBLIC_BASE_URL: z.string().url().default("http://localhost:4000"),
-  WEB_ADMIN_ORIGIN: z.string().url().default("https://localhost:5173"),
+  // Dominios exactos, separados por comas, para producción y previews de Vercel.
+  WEB_ADMIN_ORIGIN: webAdminOrigins.default("https://localhost:5173"),
   TRUST_PROXY: bool(false),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL es obligatorio"),
@@ -205,8 +228,11 @@ function load(): AppConfig {
       problems.push("PUBLIC_BASE_URL debe usar https en producción.");
     }
     if (
-      !cfg.WEB_ADMIN_ORIGIN.startsWith("https://") &&
-      !cfg.WEB_ADMIN_ORIGIN.startsWith("http://localhost")
+      cfg.WEB_ADMIN_ORIGIN.split(",").some(
+        (origin) =>
+          !origin.startsWith("https://") &&
+          !origin.startsWith("http://localhost")
+      )
     ) {
       problems.push("WEB_ADMIN_ORIGIN debe usar https en produccion.");
     }

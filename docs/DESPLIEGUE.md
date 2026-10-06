@@ -366,9 +366,23 @@ DATABASE_URL="<directa>" npm run seed
 1. **Add New → Project** → el mismo repositorio.
 2. **Root Directory**: `web-admin`. El `vercel.json` ya define la compilación y
    las reescrituras que necesita una aplicación de una sola página.
-3. Variable de entorno: `VITE_API_BASE_URL=https://<tu-api>.up.railway.app`
-4. Desplegar, copiar la URL y volver a Railway para poner esa URL exacta en
-   `WEB_ADMIN_ORIGIN`. Sin eso el navegador bloquea las peticiones por CORS.
+3. En Vercel, crea `VITE_API_BASE_URL` con el origen de la API, sin `/api/v1`,
+   por ejemplo `https://asistencia-uncp-production.up.railway.app`. Es una URL
+   pública que el panel necesita conocer; en Vercel guárdala como **Config**,
+   no como valor sensible. Los valores `VITE_*` se incluyen en JavaScript y
+   nunca deben contener contraseñas, tokens ni claves privadas.
+4. Aplica la variable a **Production** y a **Preview** solo si esas versiones
+   deben usar la misma API. `VITE_API_PROXY_TARGET` es exclusivamente para el
+   servidor local de Vite y no se configura en Vercel.
+5. Desplegar, copiar el dominio de producción del panel y configurar en Railway
+   `WEB_ADMIN_ORIGIN=https://<tu-panel>.vercel.app`. Se admiten varios orígenes
+   exactos separados por comas para autorizar previews concretos. La API valida
+   CORS contra estos orígenes.
+
+Si se deja `VITE_API_BASE_URL` vacío, el panel usa la reescritura `/api` de
+`vercel.json`, que reenvía al dominio Railway configurado allí. Al establecer
+`VITE_API_BASE_URL`, el cliente usa directamente el origen indicado; por eso
+Railway debe autorizar el dominio Vercel en `WEB_ADMIN_ORIGIN`.
 
 **Aplicación móvil**
 
