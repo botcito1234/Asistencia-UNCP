@@ -116,7 +116,12 @@ export async function searchPublicEducationalInstitutions(search: string): Promi
   let response: Response;
   try {
     response = await fetch(`${ESCALE_ENDPOINT}?${params}`, {
-      headers: { accept: 'application/xml,text/xml' },
+      headers: {
+        accept: 'application/xml,text/xml',
+        'accept-language': 'es-PE,es;q=0.9',
+        referer: 'https://escale.minedu.gob.pe/web/inicio/padron-de-iiee',
+        'user-agent': 'NEXORA-ControlAsistencia/1.0 (consulta de padron educativo publico)',
+      },
       signal: AbortSignal.timeout(8_000),
     });
   } catch (cause) {

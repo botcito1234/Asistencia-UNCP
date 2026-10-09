@@ -3,7 +3,7 @@
  * Una sede nunca se elimina: se desactiva, porque su historial de asistencia
  * debe seguir siendo consultable.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -183,12 +183,17 @@ function ModalSede({
   });
   const [error, setError] = useState<string | null>(null);
   const [busquedaInstitucion, setBusquedaInstitucion] = useState('');
+  const [busquedaInstitucionLista, setBusquedaInstitucionLista] = useState('');
   const [resultadosAbiertos, setResultadosAbiertos] = useState(false);
   const terminoInstitucion = busquedaInstitucion.trim();
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setBusquedaInstitucionLista(terminoInstitucion), 500);
+    return () => window.clearTimeout(timeout);
+  }, [terminoInstitucion]);
   const instituciones = useQuery({
-    queryKey: ['catalogo-educativo-huancayo', terminoInstitucion],
-    queryFn: () => api.get<InstitucionEducativaPublica[]>('/sedes/catalogo-educativo', { q: terminoInstitucion }),
-    enabled: abierto && resultadosAbiertos && terminoInstitucion.length >= 3,
+    queryKey: ['catalogo-educativo-huancayo', busquedaInstitucionLista],
+    queryFn: () => api.get<InstitucionEducativaPublica[]>('/sedes/catalogo-educativo', { q: busquedaInstitucionLista }),
+    enabled: abierto && resultadosAbiertos && busquedaInstitucionLista.length >= 3,
     staleTime: 10 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -270,7 +275,7 @@ function ModalSede({
               aria-controls="s-resultados-instituciones"
             />
           </Field>
-          {resultadosAbiertos && terminoInstitucion.length >= 3 && (
+          {resultadosAbiertos && terminoInstitucion.length >= 3 && terminoInstitucion === busquedaInstitucionLista && (
             <div
               id="s-resultados-instituciones"
               role="listbox"
