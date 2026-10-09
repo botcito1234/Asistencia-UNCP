@@ -141,7 +141,9 @@ export async function searchPublicEducationalInstitutions(search: string): Promi
     throw errors.dependency('No se pudo leer la respuesta del padrón educativo del MINEDU.', cause);
   }
   if (!/<(?:[\w.-]+:)?instituciones\b/i.test(xml)) {
-    throw errors.dependency('El padrón educativo del MINEDU devolvió una respuesta no válida.');
+    const contentType = response.headers.get('content-type') ?? 'tipo desconocido';
+    const rootElement = xml.match(/<(?![!?])(?:[\w.-]+:)?([\w.-]+)\b[^>]*>/)?.[1] ?? 'sin raíz XML';
+    throw errors.dependency('El padrón educativo del MINEDU devolvió un formato no válido (' + contentType + '; raíz: ' + rootElement + ').');
   }
 
   const items = parseInstitutions(xml);
