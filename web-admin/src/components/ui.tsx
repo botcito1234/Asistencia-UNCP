@@ -485,7 +485,7 @@ export function Modal({
   if (!abierto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-20">
       <button
         type="button"
         className="nexora-overlay-in absolute inset-0 border-0 bg-slate-900/40 p-0"
@@ -499,12 +499,12 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="dialog-title"
         className={
-          "nexora-dialog-in relative w-full " +
+          "nexora-dialog-in relative flex max-h-[calc(100vh-6rem)] w-full flex-col " +
           ancho +
           " rounded-xl bg-white shadow-xl focus:outline-none"
         }
       >
-        <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2
             id="dialog-title"
             className="text-base font-semibold text-slate-800"
@@ -520,7 +520,7 @@ export function Modal({
             ✕
           </button>
         </header>
-        <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );
