@@ -283,7 +283,12 @@ function ModalSede({
               className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
             >
               {instituciones.isFetching && <p className="px-3 py-2 text-sm text-slate-500">Buscando en el padrón de ESCALE…</p>}
-              {instituciones.isError && <p className="px-3 py-2 text-sm text-rose-600">No se pudo consultar el padrón. Puedes ingresar la dirección manualmente.</p>}
+              {instituciones.isError && (
+                <p className="px-3 py-2 text-sm text-rose-600">
+                  {instituciones.error instanceof Error ? instituciones.error.message : 'No se pudo consultar el padrón.'}{' '}
+                  Puedes ingresar la dirección manualmente.
+                </p>
+              )}
               {instituciones.isSuccess && instituciones.data.length === 0 && (
                 <p className="px-3 py-2 text-sm text-slate-500">No hay coincidencias con dirección y coordenadas en el padrón.</p>
               )}
