@@ -119,8 +119,9 @@ export async function searchPublicEducationalInstitutions(search: string): Promi
       headers: {
         accept: 'application/xml,text/xml',
         'accept-language': 'es-PE,es;q=0.9',
-        referer: 'https://escale.minedu.gob.pe/web/inicio/padron-de-iiee',
-        'user-agent': 'NEXORA-ControlAsistencia/1.0 (consulta de padron educativo publico)',
+        origin: 'http://escale3.minedu.gob.pe:8080',
+        referer: 'http://escale3.minedu.gob.pe:8080/web/inicio/padron-de-iiee',
+        'user-agent': 'Mozilla/5.0 (compatible; NEXORA-ControlAsistencia/1.0)',
       },
       signal: AbortSignal.timeout(8_000),
     });
