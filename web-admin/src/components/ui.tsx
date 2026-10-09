@@ -11,6 +11,7 @@ import type {
   InputHTMLAttributes,
   SelectHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -484,7 +485,7 @@ export function Modal({
 
   if (!abierto) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-20">
       <button
         type="button"
@@ -522,7 +523,8 @@ export function Modal({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
