@@ -31,7 +31,8 @@ function decodeXml(value: string): string {
 
 function tag(xml: string, name: string): string {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = xml.match(new RegExp(`<${escapedName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapedName}>`, 'i'));
+  const xmlName = `(?:[\\w.-]+:)?${escapedName}`;
+  const match = xml.match(new RegExp(`<${xmlName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${xmlName}\\s*>`, 'i'));
   const value = match?.[1];
   return value ? decodeXml(value.trim()) : '';
 }
@@ -40,7 +41,7 @@ function parseInstitutions(xml: string): EducationalInstitutionOption[] {
   const results: EducationalInstitutionOption[] = [];
   const seenLocals = new Set<string>();
 
-  for (const match of xml.matchAll(/<items\b[^>]*>([\s\S]*?)<\/items>/gi)) {
+  for (const match of xml.matchAll(/<(?:[\w.-]+:)?items\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?items\s*>/gi)) {
     const record = match[1] ?? '';
     const name = tag(record, 'cenEdu');
     const address = tag(record, 'dirCen');
@@ -139,7 +140,7 @@ export async function searchPublicEducationalInstitutions(search: string): Promi
   } catch (cause) {
     throw errors.dependency('No se pudo leer la respuesta del padrón educativo del MINEDU.', cause);
   }
-  if (!xml.includes('<instituciones')) {
+  if (!/<(?:[\w.-]+:)?instituciones\b/i.test(xml)) {
     throw errors.dependency('El padrón educativo del MINEDU devolvió una respuesta no válida.');
   }
 
