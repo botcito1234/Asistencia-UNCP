@@ -29,6 +29,17 @@ import type { Sede } from '../lib/types';
 
 const CENTRO_POR_DEFECTO = { lat: -12.046374, lng: -77.042793 };
 
+interface InstitucionEducativaPublica {
+  name: string;
+  address: string;
+  district: string;
+  level: string;
+  localCode: string;
+  modularCode: string;
+  latitude: number;
+  longitude: number;
+}
+
 export function Sites() {
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -171,6 +182,17 @@ function ModalSede({
     active: sede?.active ?? true,
   });
   const [error, setError] = useState<string | null>(null);
+  const [busquedaInstitucion, setBusquedaInstitucion] = useState('');
+  const [resultadosAbiertos, setResultadosAbiertos] = useState(false);
+  const terminoInstitucion = busquedaInstitucion.trim();
+  const instituciones = useQuery({
+    queryKey: ['catalogo-educativo-huancayo', terminoInstitucion],
+    queryFn: () => api.get<InstitucionEducativaPublica[]>('/sedes/catalogo-educativo', { q: terminoInstitucion }),
+    enabled: abierto && resultadosAbiertos && terminoInstitucion.length >= 3,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   // Al abrir con otra sede hay que refrescar el formulario.
   const [ultimaSede, setUltimaSede] = useState<string | null>(sede?.id ?? null);
@@ -230,7 +252,69 @@ function ModalSede({
           </Field>
         </div>
 
-        <Field label="Direccion" htmlFor="s-direccion">
+        <div className="relative">
+          <Field label="Buscar institución educativa pública" htmlFor="s-buscar-institucion" hint="Escriba al menos 3 caracteres del nombre; se busca en la provincia de Huancayo.">
+            <Input
+              id="s-buscar-institucion"
+              value={busquedaInstitucion}
+              onChange={(e) => {
+                setBusquedaInstitucion(e.target.value);
+                setResultadosAbiertos(true);
+              }}
+              onFocus={() => setResultadosAbiertos(true)}
+              placeholder="Ej.: Santa Isabel"
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={resultadosAbiertos && terminoInstitucion.length >= 3}
+              aria-controls="s-resultados-instituciones"
+            />
+          </Field>
+          {resultadosAbiertos && terminoInstitucion.length >= 3 && (
+            <div
+              id="s-resultados-instituciones"
+              role="listbox"
+              aria-label="Instituciones educativas públicas de Huancayo"
+              className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+            >
+              {instituciones.isFetching && <p className="px-3 py-2 text-sm text-slate-500">Buscando en el padrón de ESCALE…</p>}
+              {instituciones.isError && <p className="px-3 py-2 text-sm text-rose-600">No se pudo consultar el padrón. Puedes ingresar la dirección manualmente.</p>}
+              {instituciones.isSuccess && instituciones.data.length === 0 && (
+                <p className="px-3 py-2 text-sm text-slate-500">No hay coincidencias con dirección y coordenadas en el padrón.</p>
+              )}
+              {instituciones.data?.slice(0, 8).map((institucion) => (
+                <button
+                  key={institucion.localCode || institucion.modularCode}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    setForm((actual) => ({
+                      ...actual,
+                      name: institucion.name,
+                      address: institucion.address,
+                      latitude: institucion.latitude,
+                      longitude: institucion.longitude,
+                    }));
+                    setBusquedaInstitucion('');
+                    setResultadosAbiertos(false);
+                    setError(null);
+                  }}
+                  className="block w-full px-3 py-2 text-left hover:bg-marca-50 focus:bg-marca-50 focus:outline-none"
+                >
+                  <span className="block text-sm font-medium text-slate-800">{institucion.name}</span>
+                  <span className="block text-xs text-slate-600">{institucion.address} · {institucion.district}</span>
+                  <span className="block text-xs text-slate-400">{institucion.level} · Local {institucion.localCode}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="-mt-3 text-xs text-slate-500">
+          Fuente: <a className="text-marca-700 underline" href="https://escale.minedu.gob.pe/web/inicio/padron-de-iiee" target="_blank" rel="noreferrer">Padrón ESCALE del MINEDU</a>. La ubicación es la registrada por la DRE/UGEL; revisa el punto y ajusta el marcador si hace falta.
+        </p>
+
+        <Field label="Dirección" htmlFor="s-direccion">
           <Input id="s-direccion" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
         </Field>
 

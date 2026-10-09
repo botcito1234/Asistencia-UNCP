@@ -7,12 +7,23 @@ import * as siteService from '../../modules/sites/site.service.js';
 import { getDashboard } from '../../modules/attendance/attendance.query.js';
 import { businessDateString } from '../../core/time.js';
 import { config } from '../../config/env.js';
+import { z } from 'zod';
+import { searchPublicEducationalInstitutions } from '../../modules/sites/education-catalog.service.js';
 
 export const sitesRouter: Router = Router();
 
 sitesRouter.use(authenticate());
 
 /** GET /sedes - todos los administradores ven todas las sedes. */
+sitesRouter.get(
+  '/catalogo-educativo',
+  requireRole('ADMINISTRADOR'),
+  asyncHandler(async (req, res) => {
+    const search = z.string().trim().min(3).max(80).parse(req.query.q);
+    res.json(await searchPublicEducationalInstitutions(search));
+  }),
+);
+
 sitesRouter.get(
   '/',
   requireRole('ADMINISTRADOR'),

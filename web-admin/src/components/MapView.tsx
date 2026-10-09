@@ -14,7 +14,9 @@ import {
   Marker,
   Popup,
   Polyline,
+  useMap,
 } from "react-leaflet";
+import { useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { metros } from "../lib/format";
@@ -212,6 +214,16 @@ export function MapView({
 }
 
 /** Mapa reducido para elegir la ubicacion de una sede. */
+function RecentrarMapaSede({ latitude, longitude }: { latitude: number; longitude: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([latitude, longitude], Math.max(map.getZoom(), 17), { animate: true });
+  }, [latitude, longitude, map]);
+
+  return null;
+}
+
 export function SitePickerMap({
   latitude,
   longitude,
@@ -236,6 +248,7 @@ export function SitePickerMap({
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom
       >
+        <RecentrarMapaSede latitude={latitude} longitude={longitude} />
         <TileLayer url={TILE_URL} attribution={ATTRIBUTION} maxZoom={19} />
         <Circle
           center={centro}
