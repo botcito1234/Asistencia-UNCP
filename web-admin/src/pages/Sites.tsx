@@ -181,7 +181,7 @@ function ModalSede({
     timezone: sede?.timezone ?? 'America/Lima',
     active: sede?.active ?? true,
   });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const [busquedaInstitucion, setBusquedaInstitucion] = useState('');
   const [busquedaInstitucionLista, setBusquedaInstitucionLista] = useState('');
   const [resultadosAbiertos, setResultadosAbiertos] = useState(false);
@@ -219,7 +219,7 @@ function ModalSede({
   const guardar = useMutation({
     mutationFn: () => (esEdicion ? api.patch('/sedes/' + sede.id, form) : api.post('/sedes', form)),
     onSuccess: () => onExito(esEdicion ? 'Sede actualizada.' : 'Sede registrada.'),
-    onError: (e) => setError(e instanceof Error ? e.message : 'No se pudo guardar la sede.'),
+    onError: (e) => setError(e),
   });
 
   const usarUbicacionActual = () => {
@@ -389,7 +389,7 @@ function ModalSede({
           </label>
         )}
 
-        {error && <ErrorMessage error={error} />}
+        {error !== null && <ErrorMessage error={error} />}
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <Button variante="secundario" onClick={onCerrar}>

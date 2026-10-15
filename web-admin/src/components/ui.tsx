@@ -426,6 +426,34 @@ export function ErrorMessage({
       : typeof error === "string"
         ? error
         : "Ocurrio un error inesperado.";
+  const detalleValidacion =
+    error && typeof error === "object" && "details" in error
+      ? (error as { details?: unknown }).details
+      : undefined;
+  const problemas = Array.isArray(detalleValidacion)
+    ? detalleValidacion.flatMap((detalle) => {
+        if (
+          !detalle ||
+          typeof detalle !== "object" ||
+          !("campo" in detalle) ||
+          !("problema" in detalle) ||
+          typeof detalle.problema !== "string"
+        ) {
+          return [];
+        }
+        const campos: Record<string, string> = {
+          code: "Código",
+          name: "Nombre",
+          address: "Dirección",
+          latitude: "Latitud",
+          longitude: "Longitud",
+          radiusMeters: "Radio",
+          timezone: "Zona horaria",
+        };
+        const campo = typeof detalle.campo === "string" ? detalle.campo : "";
+        return [(campos[campo] ?? campo) + ": " + detalle.problema];
+      })
+    : [];
   return (
     <div
       className="nexora-fade-in rounded-lg border border-rose-200 bg-rose-50 p-4"
@@ -435,6 +463,13 @@ export function ErrorMessage({
         No se pudo completar la operación
       </p>
       <p className="mt-1 text-sm text-rose-700">{mensaje}</p>
+      {problemas.length > 0 && (
+        <ul className="mt-2 list-inside list-disc text-sm text-rose-700">
+          {problemas.map((problema, index) => (
+            <li key={index}>{problema}</li>
+          ))}
+        </ul>
+      )}
       {onRetry && (
         <button
           type="button"
